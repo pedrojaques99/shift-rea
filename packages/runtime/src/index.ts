@@ -1,6 +1,9 @@
 export { shiftInputSchemas } from "./inputs";
 export { FontChangedError, ShiftReadScope } from "./read";
 export {
+  FontEditPlaceholderError,
+  FontEditRefusedError,
+  FontEditUnavailableError,
   HistoryUnavailableError,
   LastPageError,
   ProofTextError,
@@ -49,6 +52,8 @@ export type {
   GlyphResolveInput,
   GlyphSelector,
   GlyphSummary,
+  FontEdit,
+  FontEditInput,
   HistoryInput,
   HistoryLocation,
   HistoryRedo,

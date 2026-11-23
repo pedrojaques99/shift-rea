@@ -1,17 +1,26 @@
 import overview from "../../../skills/shift/SKILL.md?raw";
 import cli from "../../../skills/shift/references/cli.md?raw";
+import editing from "../../../skills/shift/references/editing.md?raw";
 import fonts from "../../../skills/shift/references/fonts.md?raw";
 import mcp from "../../../skills/shift/references/mcp.md?raw";
 import variableFonts from "../../../skills/shift/references/variable-fonts.md?raw";
 
 /** Sections of the bundled Shift skill that `shift.guide` serves. */
-export const SHIFT_GUIDE_TOPICS = ["overview", "mcp", "cli", "fonts", "variable-fonts"] as const;
+export const SHIFT_GUIDE_TOPICS = [
+  "overview",
+  "mcp",
+  "editing",
+  "cli",
+  "fonts",
+  "variable-fonts",
+] as const;
 
 export type ShiftGuideTopic = (typeof SHIFT_GUIDE_TOPICS)[number];
 
 const GUIDE: Record<ShiftGuideTopic, string> = {
   overview,
   mcp,
+  editing,
   cli,
   fonts,
   "variable-fonts": variableFonts,
@@ -45,6 +54,6 @@ export function shiftGuide(topic: ShiftGuideTopic, command: string = RELEASE_COM
 export const SHIFT_MCP_INSTRUCTIONS = [
   "Shift is a desktop font editor; this server reads the fonts open in the running app.",
   "Call shift.guide first for how to work with Shift, then shift.describe for the exact typed API used inside shift.execute.",
-  "This server does not edit a font or a file directly: it inspects, renders, and captures; controls what a window shows (shift.commands for view commands such as Zoom In, and shift.editor for the tool, page, open glyph, camera and selection); writes the proof text on the canvas (shift.text) and its Text mode caret; and edits the document's pages (shift.pages).",
+  "It inspects, renders, and captures; controls what a window shows (shift.commands for view commands such as Zoom In, and shift.editor for the tool, page, open glyph, camera and selection); writes the proof text on the canvas (shift.text) and its Text mode caret; edits the document's pages (shift.pages); and edits the font itself with shift.edits.apply: glyphs, outlines, components, anchors, spacing, metrics keys, masters and kerning, each call one undo step (read shift.guide topic editing first). It never writes files: saving and exporting stay with the user.",
   "shift.history undoes and redoes the window's steps as Edit › Undo and Redo do, whoever made them, so undoing a font edit changes the font back.",
 ].join(" ");

@@ -86,6 +86,7 @@ export class SandboxRuntimeProcess {
       "shift.pages.delete": (input) => this.#capabilities.pages.delete(input),
       "shift.history.undo": (input) => this.#capabilities.history.undo(input),
       "shift.history.redo": (input) => this.#capabilities.history.redo(input),
+      "shift.edits.apply": (input) => this.#capabilities.edits.apply(input),
     });
 
     this.#process = proc;

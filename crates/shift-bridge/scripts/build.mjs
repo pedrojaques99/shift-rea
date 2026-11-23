@@ -13,7 +13,7 @@
 //
 // Usage: node scripts/build.mjs <release|debug|e2e>. SHIFT_RUST_TARGET, when
 // set, is the target triple to build for, such as x86_64-apple-darwin.
-import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { NapiCli } from "@napi-rs/cli";
 import { missingFragments, writeProtocol } from "./protocol.mjs";
@@ -58,4 +58,23 @@ try {
   }
 } finally {
   rmSync(fragments, { recursive: true, force: true });
+}
+
+// A Windows GNU (MinGW) build is a plain DLL like the MSVC one, but napi's
+// generated loader only looks for the MSVC file name outside a shared-library
+// Node. Copy it there so Electron and Node load it unchanged.
+const gnuAddon = join(crate, "shift-bridge.win32-x64-gnu.node");
+const loadedAddon = join(crate, "shift-bridge.win32-x64-msvc.node");
+if (process.platform === "win32" && existsSync(gnuAddon) && !sameFile(gnuAddon, loadedAddon)) {
+  try {
+    copyFileSync(gnuAddon, loadedAddon);
+  } catch (error) {
+    // A running Shift keeps the loaded addon open; it picks the new one up on restart.
+    if (error?.code !== "EBUSY" && error?.code !== "EPERM") throw error;
+    console.warn(`${loadedAddon} is in use; restart Shift to load the new build.`);
+  }
+}
+
+function sameFile(a, b) {
+  return existsSync(b) && readFileSync(a).equals(readFileSync(b));
 }

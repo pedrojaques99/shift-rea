@@ -1229,6 +1229,10 @@ export class App {
         redo: ({ windowId, ...input }) =>
           this.#windowForAgentRequest(windowId).agent.edit("history.redo", input),
       },
+      edits: {
+        apply: ({ windowId, ...input }) =>
+          this.#windowForAgentRequest(windowId).agent.edit("edits.apply", input),
+      },
     });
     this.#sandbox = sandbox;
     try {

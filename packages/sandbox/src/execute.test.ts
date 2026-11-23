@@ -249,6 +249,16 @@ const capabilities: ShiftCapabilities = {
       return observation({ redone: false, location: null });
     },
   },
+  edits: {
+    async apply({ intents }) {
+      return observation({
+        ids: { "new:glyph:a": "glyph_minted" },
+        layerIds: [],
+        dependentGlyphIds: [],
+        fontChanged: intents.length > 0,
+      });
+    },
+  },
 };
 
 const HISTORY_LOCATION = {
@@ -585,6 +595,42 @@ describe("Shift sandbox executes bounded code over live capabilities", () => {
         options: { features: { liga: false, ss01: null }, lineHeight: 1.5 },
       },
       { windowId: 7, runId: "run-a" },
+    ]);
+  });
+
+  it("passes font edits to the host with their intents and placeholders as written", async () => {
+    const seen: unknown[] = [];
+    const host: ShiftCapabilities = {
+      ...capabilities,
+      edits: {
+        apply: (input) => {
+          seen.push(input);
+          return capabilities.edits.apply(input);
+        },
+      },
+    };
+
+    const result = await executeShiftCode(
+      host,
+      "async () => { const intents = [{ kind: 'createGlyph', createGlyph: { glyphId: 'new:glyph:a', name: 'a', unicodes: [97] } }]; const edit = await shift.edits.apply({ windowId: 7, label: '  Draw a  ', intents }); let empty = null; try { await shift.edits.apply({ windowId: 7, label: 'Nothing', intents: [] }); } catch (caught) { empty = caught.name; } return { ids: edit.value.ids, fontChanged: edit.value.fontChanged, empty }; }",
+    );
+
+    expect(result).toEqual({
+      ids: { "new:glyph:a": "glyph_minted" },
+      fontChanged: true,
+      empty: "ZodError",
+    });
+    expect(seen).toEqual([
+      {
+        windowId: 7,
+        label: "Draw a",
+        intents: [
+          {
+            kind: "createGlyph",
+            createGlyph: { glyphId: "new:glyph:a", name: "a", unicodes: [97] },
+          },
+        ],
+      },
     ]);
   });
 

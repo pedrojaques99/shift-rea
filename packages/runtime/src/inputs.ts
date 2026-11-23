@@ -204,6 +204,16 @@ export const shiftInputSchemas = {
   "pages.delete": z.strictObject({ windowId, ifFontRevision, pageId: nodeId }),
   "history.undo": z.strictObject({ windowId, ifFontRevision }),
   "history.redo": z.strictObject({ windowId, ifFontRevision }),
+  // Each intent's payload is checked by Rust, which owns the FontIntent shapes.
+  "edits.apply": z.strictObject({
+    windowId,
+    ifFontRevision,
+    label: z.string().trim().min(1).max(120),
+    intents: z
+      .array(z.looseObject({ kind: z.string().min(1).max(64) }))
+      .min(1)
+      .max(10_000),
+  }),
   "layers.get": z.union([
     z.strictObject({ windowId, ifFontRevision, ...layerSelector.byId }),
     z.strictObject({ windowId, ifFontRevision, ...layerSelector.byGlyph }),

@@ -40,6 +40,8 @@ function run(command, args) {
     cwd: packageRoot,
     env: process.env,
     stdio: "inherit",
+    // pnpm is pnpm.cmd on Windows, which only a shell resolves.
+    shell: process.platform === "win32",
   });
   if (result.status !== 0) {
     throw new Error(`${command} ${args.join(" ")} failed with status ${result.status}`);

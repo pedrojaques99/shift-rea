@@ -19,6 +19,8 @@ import type {
   HistoryInput,
   HistoryRedo,
   HistoryUndo,
+  FontEdit,
+  FontEditInput,
   KerningAtInput,
   KerningGroupsInput,
   KerningGroupSummary,
@@ -213,6 +215,10 @@ export type SandboxHostCallMap = {
   "shift.history.redo": {
     request: HistoryInput;
     response: ShiftObservation<HistoryRedo>;
+  };
+  "shift.edits.apply": {
+    request: FontEditInput;
+    response: ShiftObservation<FontEdit>;
   };
 };
 

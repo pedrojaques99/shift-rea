@@ -73,6 +73,9 @@ const capabilities: ShiftCapabilities = {
     undo: (input) => host.call("shift.history.undo", input),
     redo: (input) => host.call("shift.history.redo", input),
   },
+  edits: {
+    apply: (input) => host.call("shift.edits.apply", input),
+  },
 };
 const runtime = serveChannel<SandboxCallMap, SandboxEventMap>(transport, {
   "sandbox.execute": ({ code }) => executeShiftCode(capabilities, code),

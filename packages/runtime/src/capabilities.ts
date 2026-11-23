@@ -7,6 +7,7 @@ import type {
   ComponentId,
   ContourId,
   FontMetadata,
+  FontIntent,
   FontMetrics,
   FontSessionMode,
   GlyphId,
@@ -789,6 +790,42 @@ export interface HistoryRedo {
   location: HistoryLocation | null;
 }
 
+/**
+ * Applies font edits as one undo step, through the same engine path the
+ * editor's own tools and menus use.
+ *
+ * @remarks
+ * `intents` are the engine's `FontIntent`s, each `{ kind, [kind]: payload }`
+ * (for example `{ kind: "setXAdvance", setXAdvance: { layerId, width } }`).
+ * Rust validates every intent; one it refuses fails the call with its
+ * message, and nothing is kept.
+ *
+ * New entities need ids. Write a placeholder `"new:<prefix>:<key>"` wherever
+ * an id goes (`"new:glyph:a"`, `"new:layer:a"`, `"new:contour:a/0"`,
+ * `"new:point:a/0/3"`); each distinct placeholder becomes one fresh id, the
+ * same everywhere it appears in this call, and `FontEdit.ids` maps it back.
+ * Prefixes: point, contour, anchor, component, glyph, layer, source, axis,
+ * axisLabel, axisMapping, kerningGroup, namedInstance, metric, swap.
+ */
+export interface FontEditInput extends ShiftTarget {
+  /** The undo step's name, as Edit › Undo shows it. */
+  label: string;
+  /** Applied in order, as one undo step. */
+  intents: FontIntent[];
+}
+
+/** What `edits.apply` did. */
+export interface FontEdit {
+  /** Each `new:` placeholder the call used, to the id it became. */
+  ids: Record<string, string>;
+  /** The layers the edit changed, in the engine's order. */
+  layerIds: LayerId[];
+  /** Glyphs that use a changed glyph as a component, so their drawing changed too. */
+  dependentGlyphIds: GlyphId[];
+  /** True when the edit replaced a font-level collection (glyphs, axes, sources, kerning, metadata). */
+  fontChanged: boolean;
+}
+
 /** Live application capabilities shared by protocol and plugin hosts. */
 export interface ShiftCapabilities {
   capture(input: ShiftCaptureInput): Promise<ShiftObservation<ShiftCapture>>;
@@ -904,6 +941,21 @@ export interface ShiftCapabilities {
   history: {
     undo(input: HistoryInput): Promise<ShiftObservation<HistoryUndo>>;
     redo(input: HistoryInput): Promise<ShiftObservation<HistoryRedo>>;
+  };
+  /**
+   * Font edits: glyphs, outlines, components, anchors, metrics, axes,
+   * sources, instances and kerning, as the editor makes them.
+   *
+   * @remarks
+   * Each call is one undo step (`history.undo` reverses it), marks the
+   * document unsaved and moves `fontRevision`; read again afterwards. With
+   * `ifFontRevision`, it fails with `FontChangedError` and changes nothing when
+   * the font has moved on. A preview of a font file cannot be edited and fails
+   * with `FontEditUnavailableError`; an intent Rust refuses fails with
+   * `FontEditRefusedError`, and nothing is kept.
+   */
+  edits: {
+    apply(input: FontEditInput): Promise<ShiftObservation<FontEdit>>;
   };
 }
 

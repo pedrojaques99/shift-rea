@@ -80,6 +80,7 @@ declare const Bounds: {
  */
 declare const PointIdBrand: unique symbol;
 declare const ContourIdBrand: unique symbol;
+declare const SwapIdBrand: unique symbol;
 declare const AnchorIdBrand: unique symbol;
 declare const AxisIdBrand: unique symbol;
 declare const AxisLabelIdBrand: unique symbol;
@@ -114,6 +115,13 @@ type ContourId = string & {
  */
 type AnchorId = string & {
   readonly [AnchorIdBrand]: typeof AnchorIdBrand;
+};
+/**
+ * A glyph swap identifier from Rust: one of the glyphs text draws in a
+ * glyph's place where a condition holds. Unique in the font.
+ */
+type SwapId = string & {
+  readonly [SwapIdBrand]: typeof SwapIdBrand;
 };
 /**
  * An axis identifier from Rust.
@@ -326,11 +334,1216 @@ interface NamedInstance {
   readonly postscriptName?: string | null;
 }
 /**
+ * The grid a font is drawn on: line spacing on each axis and how many
+ * divisions each cell takes.
+ *
+ * Spacing is in font units, counted from a glyph's origin. Whether the grid
+ * is shown or snapped to is a choice of the window, not the font, and is not
+ * stored here.
+ */
+interface Grid {
+  readonly spacingX: number;
+  readonly spacingY: number;
+  readonly subdivisions: number;
+}
+/**
  * Pair position a kerning group applies to: `First` kerns a glyph's right
  * edge, `Second` its left edge.
  */
 type KerningPosition = "first" | "second";
+/**
+ * One side of a kerning pair: a single glyph or a group.
+ *
+ * A group side only resolves when the group's position matches the side it
+ * occupies in the pair.
+ */
+type KerningSide =
+  | {
+      readonly kind: "glyph";
+      readonly glyph: GlyphId;
+    }
+  | {
+      readonly kind: "group";
+      readonly group: KerningGroupId;
+    };
 type PointType = "onCurve" | "offCurve" | "qCurve";
+/** Whether a component is placed by its anchors or by hand. */
+type ComponentAlignment = "unset" | "anchored" | "free";
+/**
+ * Where a component's base glyph takes the axes its
+ * [location](Component::location) doesn't set.
+ */
+type ComponentInheritance = "parent" | "font";
+/**
+ * An inclusive range on one axis, in that axis's design units. `None` on a
+ * side leaves the range open there.
+ */
+interface ConditionRange {
+  readonly axisId: AxisId;
+  readonly min?: number | null;
+  readonly max?: number | null;
+}
+/**
+ * Where something applies: every one of its ranges must hold.
+ *
+ * The ranges are kept behind constructors so other forms (any of, not) can
+ * join them without changing how callers build or evaluate a condition.
+ */
+interface Condition {
+  readonly all: readonly ConditionRange[];
+}
+/**
+ * One of a glyph's swaps: where its condition holds on the font's
+ * axes, text draws `glyph` in the glyph's place.
+ */
+interface GlyphSwap {
+  readonly id: SwapId;
+  readonly condition: Condition;
+  readonly glyph: GlyphId;
+}
+/**
+ * One of Glyphs' twelve label colours, in Glyphs' order: a colour's
+ * place in [`NamedMarkColor::ALL`] is the index a Glyphs file stores
+ * for it.
+ */
+type NamedMarkColor =
+  | "red"
+  | "orange"
+  | "brown"
+  | "yellow"
+  | "lightGreen"
+  | "darkGreen"
+  | "lightBlue"
+  | "darkBlue"
+  | "purple"
+  | "magenta"
+  | "lightGray"
+  | "charcoal";
+/**
+ * A colour as red, green, blue and alpha, each from 0 to 1, as a UFO
+ * writes colours.
+ *
+ * Its text form is the UFO one: the four channels separated by commas,
+ * such as `0.5,0.09,0.79,1`.
+ */
+interface Rgba {
+  readonly red: number;
+  readonly green: number;
+  readonly blue: number;
+  readonly alpha: number;
+}
+/**
+ * The colour a glyph is tagged with.
+ *
+ * Its text form is the colour's name for [`MarkColor::Named`] and the
+ * [`Rgba`] text for [`MarkColor::Custom`].
+ */
+type MarkColor =
+  | {
+      readonly kind: "named";
+      readonly named: NamedMarkColor;
+    }
+  /** A colour outside the twelve, as another tool wrote it. */
+  | {
+      readonly kind: "custom";
+      readonly custom: Rgba;
+    };
+/** A point to create, with stable identity minted by a trusted caller. */
+interface PointSeed {
+  readonly id: PointId;
+  readonly x: number;
+  readonly y: number;
+  readonly pointType: PointType;
+  readonly smooth: boolean;
+}
+interface AddPoints {
+  readonly layerId: LayerId;
+  /**
+   * Target contour; when `None`, derived from `before` (Rust owns
+   * identity resolution — the renderer never bookkeeps pending
+   * point→contour maps).
+   */
+  readonly contourId?: ContourId | null;
+  /** Insert before this point; append when `None`. */
+  readonly before?: PointId | null;
+  readonly points: readonly PointSeed[];
+}
+interface AddContour {
+  readonly layerId: LayerId;
+  readonly contourId: ContourId;
+  readonly closed: boolean;
+}
+interface SetContourClosed {
+  readonly layerId: LayerId;
+  readonly contourId: ContourId;
+  readonly closed: boolean;
+}
+interface MovePoints {
+  readonly layerId: LayerId;
+  readonly pointIds: readonly PointId[];
+  /** Interleaved absolute coordinates: x0, y0, x1, y1, … */
+  readonly coords: readonly number[];
+}
+interface SetPointSmooth {
+  readonly layerId: LayerId;
+  readonly pointId: PointId;
+  readonly smooth: boolean;
+}
+interface RemovePoints {
+  readonly layerId: LayerId;
+  readonly pointIds: readonly PointId[];
+}
+/** An anchor to create, with stable identity minted by a trusted caller. */
+interface AnchorSeed {
+  readonly id: AnchorId;
+  readonly name?: string | null;
+  readonly x: number;
+  readonly y: number;
+}
+interface AddAnchors {
+  readonly layerId: LayerId;
+  readonly anchors: readonly AnchorSeed[];
+}
+interface MoveAnchors {
+  readonly layerId: LayerId;
+  readonly anchorIds: readonly AnchorId[];
+  /** Interleaved absolute coordinates: x0, y0, x1, y1, … */
+  readonly coords: readonly number[];
+}
+/**
+ * Sets every point and anchor position of a layer at once: a move of many
+ * points that names none of them, so it costs numbers, not ids.
+ */
+interface SetPositions {
+  readonly layerId: LayerId;
+  /**
+   * Every contour point, contour after contour, then every anchor, each as
+   * `x, y`.
+   */
+  readonly positions: Float64Array;
+}
+interface RemoveAnchors {
+  readonly layerId: LayerId;
+  readonly anchorIds: readonly AnchorId[];
+}
+/** Renames anchors in one layer; `names[i]` is the new name of `anchor_ids[i]`. */
+interface RenameAnchors {
+  readonly layerId: LayerId;
+  readonly anchorIds: readonly AnchorId[];
+  readonly names: readonly string[];
+}
+/** Adds one direct reference after rejecting direct or transitive component cycles. */
+interface AddComponent {
+  readonly layerId: LayerId;
+  readonly componentId: ComponentId;
+  readonly baseGlyphId: GlyphId;
+}
+/** Replaces direct component transforms without changing component identity or order. */
+interface SetComponentTransforms {
+  readonly layerId: LayerId;
+  readonly componentIds: readonly ComponentId[];
+  /** Nine decomposed values per component in interpolation order. */
+  readonly transforms: readonly number[];
+}
+/**
+ * Records whether components are placed by their anchors; anchoring one
+ * also places it on its anchors now.
+ */
+interface SetComponentAlignment {
+  readonly layerId: LayerId;
+  readonly componentIds: readonly ComponentId[];
+  readonly alignment: ComponentAlignment;
+}
+/**
+ * Sets where components draw their base glyphs: the axes each one sets,
+ * and where it takes the rest from.
+ *
+ * Each component's location replaces the one it had, so an empty location
+ * removes every override. Which axes a component sets is part of its
+ * layer's structure: masters that set different axes stop interpolating
+ * together, so an edit meant for every master names each master's layer.
+ */
+interface SetComponentLocations {
+  readonly layerId: LayerId;
+  readonly componentIds: readonly ComponentId[];
+  /** One per component, in design units of the font's axes. */
+  readonly locations: readonly Location[];
+  /** One per component. */
+  readonly inheritances: readonly ComponentInheritance[];
+}
+interface RemoveComponents {
+  readonly layerId: LayerId;
+  readonly componentIds: readonly ComponentId[];
+}
+interface DecomposeComponents {
+  readonly layerId: LayerId;
+  readonly componentIds: readonly ComponentId[];
+}
+interface ReverseContour {
+  readonly layerId: LayerId;
+  readonly contourId: ContourId;
+}
+/** Rotates a closed contour to an existing on-curve point without changing its geometry. */
+interface SetContourStart {
+  readonly layerId: LayerId;
+  readonly contourId: ContourId;
+  readonly pointId: PointId;
+}
+/** Affine move: O(selection-ids) wire instead of O(N) coords. */
+interface TranslatePoints {
+  readonly layerId: LayerId;
+  readonly pointIds: readonly PointId[];
+  readonly dx: number;
+  readonly dy: number;
+}
+/**
+ * Raw 2D affine transformation matrix (6 values).
+ *
+ * Represents a 3x3 homogeneous matrix with implicit bottom row [0, 0, 1]:
+ * ```text
+ * | xx  yx  dx |
+ * | xy  yy  dy |
+ * | 0   0   1  | (implicit)
+ * ```
+ */
+interface Matrix {
+  readonly a: number;
+  readonly b: number;
+  readonly c: number;
+  readonly d: number;
+  readonly e: number;
+  readonly f: number;
+}
+/**
+ * Affine transform of the whole layer: every contour point, anchor, and
+ * component placement. The advance width is unchanged.
+ */
+interface TransformLayer {
+  readonly layerId: LayerId;
+  readonly transform: Matrix;
+}
+interface SetXAdvance {
+  readonly layerId: LayerId;
+  readonly width: number;
+}
+type BooleanOp = "union" | "subtract" | "intersect" | "difference";
+/**
+ * Rust-only computation: the echo is the same replace-grade shape as
+ * every other intent — remote changes are not a special case.
+ */
+interface ApplyBooleanOp {
+  readonly layerId: LayerId;
+  readonly contourIdA: ContourId;
+  readonly contourIdB: ContourId;
+  readonly operation: BooleanOp;
+}
+/** How deleting points reconnects the points that survive. */
+type DeleteMode = "fit" | "gap";
+/** Deletes points and reconnects what survives: see [`GlyphLayer::delete_points`]. */
+interface DeletePoints {
+  readonly layerId: LayerId;
+  readonly pointIds: readonly PointId[];
+  readonly mode: DeleteMode;
+}
+/** Splits a segment at `t`, keeping its shape: see [`GlyphLayer::split_segment`]. */
+interface SplitSegment {
+  readonly layerId: LayerId;
+  readonly startId: PointId;
+  readonly endId: PointId;
+  readonly t: number;
+  /** The new on-curve point, minted by the caller so it can keep drawing from it. */
+  readonly pointId: PointId;
+}
+/** Raises a line to a cubic of the same shape: see [`GlyphLayer::upgrade_line_to_cubic`]. */
+interface UpgradeLineToCubic {
+  readonly layerId: LayerId;
+  readonly startId: PointId;
+  readonly endId: PointId;
+}
+/** Which end of an open contour. */
+type ContourSide = "start" | "end";
+/** One open end of a contour. */
+interface ContourEnd {
+  readonly contourId: ContourId;
+  readonly side: ContourSide;
+}
+/** How [`GlyphLayer::join_contours`] connects two ends. */
+type JoinMode = "merge" | "connect";
+/** Closes a contour or joins two by their ends: see [`GlyphLayer::join_contours`]. */
+interface JoinContours {
+  readonly layerId: LayerId;
+  readonly from: ContourEnd;
+  readonly to: ContourEnd;
+  readonly mode: JoinMode;
+}
+/** Moves points by one affine transform. */
+interface TransformPoints {
+  readonly layerId: LayerId;
+  readonly pointIds: readonly PointId[];
+  readonly transform: Matrix;
+}
+/** Where [`GlyphLayer::align_points`] puts the points, in their own box. */
+type PointAlignment = "left" | "center-h" | "right" | "top" | "center-v" | "bottom";
+/** Lines points up on an edge or centre of their box: see [`GlyphLayer::align_points`]. */
+interface AlignPoints {
+  readonly layerId: LayerId;
+  readonly pointIds: readonly PointId[];
+  readonly alignment: PointAlignment;
+}
+/** The axis [`GlyphLayer::distribute_points`] spaces the points along. */
+type DistributeAxis = "horizontal" | "vertical";
+/** Spaces points evenly along an axis: see [`GlyphLayer::distribute_points`]. */
+interface DistributePoints {
+  readonly layerId: LayerId;
+  readonly pointIds: readonly PointId[];
+  readonly axis: DistributeAxis;
+}
+/** One sidebearing of a layer. */
+type Sidebearing = "lsb" | "rsb";
+/** Adds to one sidebearing: see [`GlyphLayer::shift_sidebearing`]. */
+interface ShiftSidebearing {
+  readonly layerId: LayerId;
+  readonly sidebearing: Sidebearing;
+  readonly delta: number;
+}
+/** The metric a key sets. */
+type MetricsKeySide = "left" | "right" | "width";
+/**
+ * Sets or clears one of a layer's metrics keys, for its source only,
+ * overriding the glyph's key for that side. `key` is kept as written; empty
+ * or blank text clears it. The side then follows the key in this same edit.
+ */
+interface SetLayerMetricsKey {
+  readonly layerId: LayerId;
+  readonly side: MetricsKeySide;
+  readonly key?: string | null;
+}
+interface Point {
+  readonly id: PointId;
+  readonly x: number;
+  readonly y: number;
+  readonly pointType: PointType;
+  readonly smooth: boolean;
+}
+interface Contour {
+  readonly id: ContourId;
+  readonly points: readonly Point[];
+  readonly closed: boolean;
+}
+interface Anchor {
+  readonly id: AnchorId;
+  readonly name?: string | null;
+  readonly x: number;
+  readonly y: number;
+}
+/**
+ * Decomposed 2D transformation with explicit scale, rotation, skew, and translation.
+ * Composition order: translate to center → rotate → scale → skew → translate back
+ */
+interface DecomposedTransform {
+  readonly translateX: number;
+  readonly translateY: number;
+  readonly rotation: number;
+  readonly scaleX: number;
+  readonly scaleY: number;
+  readonly skewX: number;
+  readonly skewY: number;
+  readonly tCenterX: number;
+  readonly tCenterY: number;
+}
+interface Component {
+  readonly id: ComponentId;
+  readonly baseGlyphId: GlyphId;
+  readonly baseGlyphName: GlyphName;
+  readonly transform: DecomposedTransform;
+  readonly alignment: ComponentAlignment;
+  /**
+   * The axes this component sets for its base glyph, in design units.
+   * Empty when it sets none.
+   */
+  readonly location: Location;
+  readonly inheritance: ComponentInheritance;
+  /**
+   * Where the component draws: nowhere its condition fails, evaluated
+   * where it draws its base glyph ([`Self::base_location`]). Last and
+   * skipped when it always holds, so components without one keep their
+   * bytes in positional encodings.
+   */
+  readonly condition: Condition;
+}
+/**
+ * Replaces drawing content while preserving layer identity, source, height, guidelines, and lib.
+ *
+ * Values use font units and supplied entity identities. The complete replacement
+ * is validated before installation and refreshes component dependencies.
+ */
+interface ReplaceGlyphLayerContent {
+  readonly layerId: LayerId;
+  readonly width: number;
+  readonly contours: readonly Contour[];
+  readonly anchors: readonly Anchor[];
+  readonly components: readonly Component[];
+}
+/**
+ * Creates glyph identity and metadata only. Authored editable data is
+ * created by explicit `CreateGlyphLayer` intents.
+ */
+interface CreateGlyph {
+  /**
+   * Caller-minted id so the verb returns identity synchronously;
+   * `None` mints Rust-side.
+   */
+  readonly glyphId?: GlyphId | null;
+  readonly name: string;
+  readonly unicodes: readonly number[];
+}
+interface UpdateGlyph {
+  /** Stable id of the existing glyph to rename. */
+  readonly glyphId: GlyphId;
+  readonly newName: GlyphName;
+  readonly newUnicodes: readonly number[];
+}
+/** Replaces authored font metadata without changing font metrics. */
+interface UpdateFontMetadata {
+  readonly metadata: FontMetadata;
+}
+/**
+ * Replaces the tracked language list stored under
+ * [`LANGUAGES_LIB_KEY`].
+ *
+ * Ids are Hyperglot language ids. Blank ids are dropped and duplicates
+ * keep their first position; an empty list is stored as an empty array,
+ * which is distinct from the key being absent.
+ */
+interface SetLanguages {
+  readonly languageIds: readonly string[];
+}
+/**
+ * Replaces the grid the font is drawn on, stored under [`crate::GRID_LIB_KEY`];
+ * `None` removes it, so the editor falls back to its default grid.
+ */
+interface SetGrid {
+  readonly grid?: Grid | null;
+}
+interface CreateAxis {
+  readonly axis: Axis;
+}
+interface UpdateAxis {
+  readonly axis: Axis;
+}
+interface DeleteAxis {
+  readonly axisId: AxisId;
+}
+interface SetAxisMappings {
+  readonly mappings: readonly AxisMapping[];
+}
+interface SetMetricDefinitions {
+  readonly definitions: readonly MetricDefinition[];
+}
+interface CreateNamedInstance {
+  readonly instance: NamedInstance;
+}
+interface UpdateNamedInstance {
+  readonly instance: NamedInstance;
+}
+interface DeleteNamedInstance {
+  readonly instanceId: NamedInstanceId;
+}
+interface DeleteSource {
+  readonly sourceId: SourceId;
+}
+/**
+ * Creates a global source record only. Glyph layers are authored by
+ * explicit `CreateGlyphLayer` intents.
+ */
+interface CreateSource {
+  readonly sourceId: SourceId;
+  readonly name: string;
+  readonly location: Location;
+}
+/** Replaces the editable authoring values of an existing master source. */
+interface UpdateSource {
+  readonly sourceId: SourceId;
+  readonly name: string;
+  readonly location: Location;
+  readonly metricValues: Readonly<Record<MetricId, MetricValue>>;
+  readonly italicAngle?: number | null;
+  readonly lineGap?: number | null;
+  readonly underlinePosition?: number | null;
+  readonly underlineThickness?: number | null;
+}
+/** Creates one sparse editable glyph layer at one source. */
+interface CreateGlyphLayer {
+  readonly layerId: LayerId;
+  readonly glyphId: GlyphId;
+  readonly sourceId: SourceId;
+}
+/** Creates one editable glyph layer by copying another layer's shape with fresh internal ids. */
+interface CloneGlyphLayer {
+  readonly layerId: LayerId;
+  readonly glyphId: GlyphId;
+  readonly sourceId: SourceId;
+  readonly fromLayerId: LayerId;
+}
+/** An ordered kerning pair, independent of any source's value for it. */
+interface KerningPair {
+  readonly first: KerningSide;
+  readonly second: KerningSide;
+}
+/** One kerning pair value to set or remove at one source. */
+interface KerningValueEdit {
+  readonly sourceId: SourceId;
+  readonly pair: KerningPair;
+  /** The new value in font units; `None` removes the pair at this source. */
+  readonly value?: number | null;
+}
+/**
+ * Sets or removes kerning pair values at sources, in order.
+ *
+ * Every source, glyph side, and group side must exist; groups are
+ * created separately. Editing a value never changes group membership.
+ */
+interface SetKerningValues {
+  readonly edits: readonly KerningValueEdit[];
+}
+/**
+ * Creates an empty kerning group at a pair position, under an id the
+ * caller mints. The name is trimmed, and must be non-blank, free of
+ * control characters, and unique at its position.
+ */
+interface CreateKerningGroup {
+  readonly groupId: KerningGroupId;
+  readonly position: KerningPosition;
+  readonly name: string;
+}
+/**
+ * Moves a glyph into a group at the group's pair position, out of any
+ * other group there, or out of its group at `position` with `None`.
+ */
+interface SetKerningGroupMember {
+  readonly position: KerningPosition;
+  readonly glyphId: GlyphId;
+  readonly groupId?: KerningGroupId | null;
+}
+/** Renames a group. Pairs reference it by id, so its kerning is unchanged. */
+interface RenameKerningGroup {
+  readonly groupId: KerningGroupId;
+  readonly name: string;
+}
+/**
+ * Deletes a group. Pairs that reference it are kept and never resolve,
+ * so undoing the delete restores its kerning.
+ */
+interface DeleteKerningGroup {
+  readonly groupId: KerningGroupId;
+}
+/**
+ * Creates one editable layer from compatible resolved numeric values.
+ *
+ * The source layer supplies authored structure and non-varying data. The
+ * resolved values replace its advance, coordinates, and component
+ * transforms after fresh internal identities are minted.
+ */
+interface MaterializeGlyphLayer {
+  readonly layerId: LayerId;
+  readonly glyphId: GlyphId;
+  readonly sourceId: SourceId;
+  readonly fromLayerId: LayerId;
+  readonly values: Float64Array;
+}
+/**
+ * Sets or clears one of a glyph's metrics keys, which apply in every source
+ * its layers do not override. `key` is kept as written; empty or blank text
+ * clears it. The side then follows the key in this same edit.
+ */
+interface SetGlyphMetricsKey {
+  readonly glyphId: GlyphId;
+  readonly side: MetricsKeySide;
+  readonly key?: string | null;
+}
+/**
+ * Links one side of a layer's glyph with `key`, as typing it does: a key
+ * starting `==` is the layer's own, for its source only; any other is the
+ * glyph's, for every source, and clears a key the layer had of its own for
+ * the side so the glyph's applies. Blank text removes the side's key,
+ * wherever it is set. The side then follows the key in this same edit.
+ */
+interface LinkMetricsSide {
+  readonly layerId: LayerId;
+  readonly side: MetricsKeySide;
+  readonly key: string;
+}
+/**
+ * Clears the keys that would pull an edit of one side of a layer's glyph
+ * back, where each is set, as typing or dragging a value does: a right
+ * sidebearing and a width hold each other ([`MetricsKeySide::sides_holding`]).
+ * A glyph's key stops applying in every source.
+ */
+interface UnlinkMetricsSide {
+  readonly layerId: LayerId;
+  readonly side: MetricsKeySide;
+}
+/**
+ * Tags every glyph in `glyph_ids` with `color`, or clears their tags, as
+ * one edit. The colour is the glyph's in every source; a layer's lib keeps
+ * whatever colour the file it came from gave it.
+ */
+interface SetMarkColor {
+  readonly glyphIds: readonly GlyphId[];
+  readonly color?: MarkColor | null;
+}
+/** One glyph to copy, with the identity its copy takes. */
+interface GlyphCopy {
+  /** The glyph copied. */
+  readonly glyphId: GlyphId;
+  /** Caller-minted id of the copy, so the caller can select it at once. */
+  readonly copyId: GlyphId;
+}
+/**
+ * Copies glyphs as one edit. A copy is named after its original with the
+ * first free numbered suffix (`a.001`, `a.002`, …), has no code points, and
+ * keeps the original's layers under new ids, its category, metrics keys,
+ * mark colour and lib. It joins no kerning group.
+ */
+interface DuplicateGlyphs {
+  readonly copies: readonly GlyphCopy[];
+}
+/**
+ * Turns every component of the glyphs into contours, in every layer, as one
+ * edit: nested components are flattened too, and each glyph keeps its own
+ * anchors. A glyph with no components is left as it is.
+ */
+interface DecomposeGlyphs {
+  readonly glyphIds: readonly GlyphId[];
+}
+/** Which of a glyph's layers a batch edit changes. */
+type LayerScope =
+  /** The glyph's layer in one source. */
+  | {
+      readonly kind: "source";
+      readonly source: SourceId;
+    }
+  /** Its layer in every master. */
+  | {
+      readonly kind: "everyMaster";
+    };
+/** What a batch edit does to one sidebearing of each glyph. */
+type SidebearingEdit =
+  /** Leaves the side as it is. */
+  | {
+      readonly kind: "keep";
+    }
+  /**
+   * Gives the side this value in font units, first clearing the keys that
+   * would pull it back, as typing a value in the sidebar does.
+   */
+  | {
+      readonly kind: "set";
+      readonly set: number;
+    }
+  /**
+   * Adds this many font units to the side, and leaves a side a key links
+   * alone.
+   */
+  | {
+      readonly kind: "adjust";
+      readonly adjust: number;
+    }
+  /** Links the side with this key, as typing it in the sidebar does. */
+  | {
+      readonly kind: "link";
+      readonly link: string;
+    };
+/**
+ * Edits the left and right sidebearings of several glyphs as one edit. A
+ * glyph with no outline in a layer has no sidebearings there, so setting or
+ * adjusting skips it; linking does not. Glyphs are edited base before
+ * composite, so a composite ends with the value asked for even when a glyph
+ * it is built from moves in the same edit.
+ */
+interface SetSidebearings {
+  readonly glyphIds: readonly GlyphId[];
+  readonly scope: LayerScope;
+  readonly left: SidebearingEdit;
+  readonly right: SidebearingEdit;
+}
+/**
+ * An axis's minimum, default and maximum in one coordinate space, and the
+ * rule that maps a coordinate in that space to `-1..=1`.
+ *
+ * The space is the caller's: user coordinates for an axis's authored range,
+ * design coordinates for [`DesignNormalization`].
+ *
+ * `minimum` is the value that normalizes to `-1` and `maximum` the one that
+ * normalizes to `1`. In user space `minimum <= default <= maximum`; a design
+ * range under a decreasing axis mapping runs the other way, `minimum` above
+ * `maximum`, because normalized signs follow the user axis.
+ */
+interface AxisRange {
+  readonly minimum: number;
+  readonly default: number;
+  readonly maximum: number;
+}
+/**
+ * Adds an axis to one glyph, such as Spread on `dot`. Without a tag, the
+ * axis gets a private one from its name (`Spread` is `SPRD`).
+ */
+interface CreateGlyphAxis {
+  readonly glyphId: GlyphId;
+  /** Caller-minted id, unique among font axes and every glyph's axes. */
+  readonly axisId: AxisId;
+  readonly name: string;
+  /** A four-character tag; `None` picks one from the name. */
+  readonly tag?: string | null;
+  /** In the axis's own units. */
+  readonly range: AxisRange;
+}
+/**
+ * An edit to an existing glyph axis, applied with
+ * [`Font::edit_glyph_axis`](crate::Font::edit_glyph_axis).
+ */
+type GlyphAxisEdit =
+  /** Gives the axis a new name; its tag stays. */
+  | {
+      readonly kind: "name";
+      readonly name: string;
+    }
+  /** Gives the axis a new tag. */
+  | {
+      readonly kind: "tag";
+      readonly tag: string;
+    }
+  /** Gives the axis a new range; every stored value stays where it is. */
+  | {
+      readonly kind: "range";
+      readonly range: AxisRange;
+    }
+  /** Gives the axis a new range and moves every stored value with it. */
+  | {
+      readonly kind: "rescale";
+      readonly rescale: AxisRange;
+    }
+  /** Removes the axis. */
+  | {
+      readonly kind: "remove";
+    };
+/**
+ * Renames, retags, changes the range of, rescales or removes a glyph axis:
+ * see [`Font::edit_glyph_axis`]. A range edit that would leave a drawing or
+ * a component outside the range is refused, rescaling moves every stored
+ * value with the range, and an axis is removed only once no drawing or
+ * component sets a value on it.
+ */
+interface EditGlyphAxis {
+  readonly axisId: AxisId;
+  readonly edit: GlyphAxisEdit;
+}
+/**
+ * Creates one empty drawing of a glyph at a location: coordinates laid over
+ * a base source, or coordinates alone with every axis they don't name at its
+ * default. A `dot` drawn at Spread 100 on Regular and an `H` drawn at Bleed
+ * 50 with no base are both made this way.
+ */
+interface CreateLocatedGlyphLayer {
+  readonly layerId: LayerId;
+  readonly glyphId: GlyphId;
+  readonly baseSourceId?: SourceId | null;
+  /** Values on font axes and the glyph's own axes, in each axis's units. */
+  readonly coordinates: Location;
+}
+/**
+ * Creates one drawing of a glyph at a location with what the glyph draws
+ * there: a copy of `from_layer_id`, one of its drawings, with fresh ids and
+ * `values`, the glyph as interpolated at that location. The editor's "Add
+ * drawing here" makes a drawing this way, so it starts from the outline
+ * shown.
+ */
+interface MaterializeLocatedGlyphLayer {
+  /** The drawing and where it sits. */
+  readonly layer: CreateLocatedGlyphLayer;
+  readonly fromLayerId: LayerId;
+  readonly values: Float64Array;
+}
+/** Moves one drawing to a new location, keeping its content and identity. */
+interface SetGlyphLayerLocation {
+  readonly layerId: LayerId;
+  readonly baseSourceId?: SourceId | null;
+  /** Values on font axes and the glyph's own axes, in each axis's units. */
+  readonly coordinates: Location;
+}
+/** Removes one drawing of a glyph, wherever it sits. */
+interface DeleteGlyphLayer {
+  readonly layerId: LayerId;
+}
+/**
+ * Replaces a glyph's swaps with `swaps`, tried in order: the
+ * whole list at once, as a batch import writes it.
+ */
+interface SetGlyphSwaps {
+  readonly glyphId: GlyphId;
+  /** Each with a caller-minted id unique in the font. */
+  readonly swaps: readonly GlyphSwap[];
+}
+/**
+ * Adds one swap to a glyph, such as `dollar.bled` where Bleed is at
+ * least 70.
+ */
+interface AddGlyphSwap {
+  readonly glyphId: GlyphId;
+  /** With a caller-minted id unique in the font. */
+  readonly swap: GlyphSwap;
+  /**
+   * Zero-based position in the list, which is tried in order; `None`
+   * adds it last, where it is tried after every other.
+   */
+  readonly position?: number | null;
+}
+/** What [`EditGlyphSwap`] does to one swap. */
+type GlyphSwapEdit =
+  /** Replaces where it applies. */
+  | {
+      readonly kind: "condition";
+      readonly condition: Condition;
+    }
+  /** Replaces the glyph it draws. */
+  | {
+      readonly kind: "glyph";
+      readonly glyph: GlyphId;
+    }
+  /**
+   * Moves it to this zero-based position, counted after it leaves its
+   * current one.
+   */
+  | {
+      readonly kind: "move";
+      readonly move: number;
+    }
+  /** Removes it; its glyph stays in the font. */
+  | {
+      readonly kind: "remove";
+    };
+/** Edits or removes one swap, wherever its glyph is. */
+interface EditGlyphSwap {
+  readonly swapId: SwapId;
+  readonly edit: GlyphSwapEdit;
+}
+/**
+ * Sets where one component draws, the same in every drawing of its glyph.
+ *
+ * The component is named by its id in one drawing; its counterparts are the
+ * components at the same position in each other drawing whose components
+ * draw the same glyphs in the same order, as interpolation matches them. A
+ * drawing whose components differ is left as it is: it doesn't interpolate
+ * with the others, and `check` reports it.
+ *
+ * The condition is evaluated where the glyph is drawn, before the
+ * component's own location applies (skrifa's rule), so it may read font axes and the glyph's
+ * own axes, never the axes of the glyph the component draws.
+ */
+interface SetComponentCondition {
+  readonly layerId: LayerId;
+  readonly componentId: ComponentId;
+  /** In design units; [`Condition::always`] clears it. */
+  readonly condition: Condition;
+}
+/** An edit a caller asks for. Each variant's struct documents it. */
+type FontIntent =
+  | {
+      readonly kind: "addPoints";
+      readonly addPoints: AddPoints;
+    }
+  | {
+      readonly kind: "addContour";
+      readonly addContour: AddContour;
+    }
+  | {
+      readonly kind: "setContourClosed";
+      readonly setContourClosed: SetContourClosed;
+    }
+  | {
+      readonly kind: "movePoints";
+      readonly movePoints: MovePoints;
+    }
+  | {
+      readonly kind: "setPointSmooth";
+      readonly setPointSmooth: SetPointSmooth;
+    }
+  | {
+      readonly kind: "removePoints";
+      readonly removePoints: RemovePoints;
+    }
+  | {
+      readonly kind: "addAnchors";
+      readonly addAnchors: AddAnchors;
+    }
+  | {
+      readonly kind: "moveAnchors";
+      readonly moveAnchors: MoveAnchors;
+    }
+  | {
+      readonly kind: "setPositions";
+      readonly setPositions: SetPositions;
+    }
+  | {
+      readonly kind: "removeAnchors";
+      readonly removeAnchors: RemoveAnchors;
+    }
+  | {
+      readonly kind: "renameAnchors";
+      readonly renameAnchors: RenameAnchors;
+    }
+  | {
+      readonly kind: "addComponent";
+      readonly addComponent: AddComponent;
+    }
+  | {
+      readonly kind: "setComponentTransforms";
+      readonly setComponentTransforms: SetComponentTransforms;
+    }
+  | {
+      readonly kind: "setComponentAlignment";
+      readonly setComponentAlignment: SetComponentAlignment;
+    }
+  | {
+      readonly kind: "setComponentLocations";
+      readonly setComponentLocations: SetComponentLocations;
+    }
+  | {
+      readonly kind: "removeComponents";
+      readonly removeComponents: RemoveComponents;
+    }
+  | {
+      readonly kind: "decomposeComponents";
+      readonly decomposeComponents: DecomposeComponents;
+    }
+  | {
+      readonly kind: "reverseContour";
+      readonly reverseContour: ReverseContour;
+    }
+  | {
+      readonly kind: "setContourStart";
+      readonly setContourStart: SetContourStart;
+    }
+  | {
+      readonly kind: "translatePoints";
+      readonly translatePoints: TranslatePoints;
+    }
+  | {
+      readonly kind: "transformLayer";
+      readonly transformLayer: TransformLayer;
+    }
+  | {
+      readonly kind: "setXAdvance";
+      readonly setXAdvance: SetXAdvance;
+    }
+  | {
+      readonly kind: "applyBooleanOp";
+      readonly applyBooleanOp: ApplyBooleanOp;
+    }
+  | {
+      readonly kind: "deletePoints";
+      readonly deletePoints: DeletePoints;
+    }
+  | {
+      readonly kind: "splitSegment";
+      readonly splitSegment: SplitSegment;
+    }
+  | {
+      readonly kind: "upgradeLineToCubic";
+      readonly upgradeLineToCubic: UpgradeLineToCubic;
+    }
+  | {
+      readonly kind: "joinContours";
+      readonly joinContours: JoinContours;
+    }
+  | {
+      readonly kind: "transformPoints";
+      readonly transformPoints: TransformPoints;
+    }
+  | {
+      readonly kind: "alignPoints";
+      readonly alignPoints: AlignPoints;
+    }
+  | {
+      readonly kind: "distributePoints";
+      readonly distributePoints: DistributePoints;
+    }
+  | {
+      readonly kind: "shiftSidebearing";
+      readonly shiftSidebearing: ShiftSidebearing;
+    }
+  | {
+      readonly kind: "setLayerMetricsKey";
+      readonly setLayerMetricsKey: SetLayerMetricsKey;
+    }
+  | {
+      readonly kind: "replaceGlyphLayerContent";
+      readonly replaceGlyphLayerContent: ReplaceGlyphLayerContent;
+    }
+  | {
+      readonly kind: "createGlyph";
+      readonly createGlyph: CreateGlyph;
+    }
+  | {
+      readonly kind: "updateGlyph";
+      readonly updateGlyph: UpdateGlyph;
+    }
+  | {
+      readonly kind: "updateFontMetadata";
+      readonly updateFontMetadata: UpdateFontMetadata;
+    }
+  | {
+      readonly kind: "setLanguages";
+      readonly setLanguages: SetLanguages;
+    }
+  | {
+      readonly kind: "setGrid";
+      readonly setGrid: SetGrid;
+    }
+  | {
+      readonly kind: "createAxis";
+      readonly createAxis: CreateAxis;
+    }
+  | {
+      readonly kind: "updateAxis";
+      readonly updateAxis: UpdateAxis;
+    }
+  | {
+      readonly kind: "deleteAxis";
+      readonly deleteAxis: DeleteAxis;
+    }
+  | {
+      readonly kind: "setAxisMappings";
+      readonly setAxisMappings: SetAxisMappings;
+    }
+  | {
+      readonly kind: "setMetricDefinitions";
+      readonly setMetricDefinitions: SetMetricDefinitions;
+    }
+  | {
+      readonly kind: "createNamedInstance";
+      readonly createNamedInstance: CreateNamedInstance;
+    }
+  | {
+      readonly kind: "updateNamedInstance";
+      readonly updateNamedInstance: UpdateNamedInstance;
+    }
+  | {
+      readonly kind: "deleteNamedInstance";
+      readonly deleteNamedInstance: DeleteNamedInstance;
+    }
+  | {
+      readonly kind: "deleteSource";
+      readonly deleteSource: DeleteSource;
+    }
+  | {
+      readonly kind: "createSource";
+      readonly createSource: CreateSource;
+    }
+  | {
+      readonly kind: "updateSource";
+      readonly updateSource: UpdateSource;
+    }
+  | {
+      readonly kind: "createGlyphLayer";
+      readonly createGlyphLayer: CreateGlyphLayer;
+    }
+  | {
+      readonly kind: "cloneGlyphLayer";
+      readonly cloneGlyphLayer: CloneGlyphLayer;
+    }
+  | {
+      readonly kind: "setKerningValues";
+      readonly setKerningValues: SetKerningValues;
+    }
+  | {
+      readonly kind: "createKerningGroup";
+      readonly createKerningGroup: CreateKerningGroup;
+    }
+  | {
+      readonly kind: "setKerningGroupMember";
+      readonly setKerningGroupMember: SetKerningGroupMember;
+    }
+  | {
+      readonly kind: "renameKerningGroup";
+      readonly renameKerningGroup: RenameKerningGroup;
+    }
+  | {
+      readonly kind: "deleteKerningGroup";
+      readonly deleteKerningGroup: DeleteKerningGroup;
+    }
+  | {
+      readonly kind: "materializeGlyphLayer";
+      readonly materializeGlyphLayer: MaterializeGlyphLayer;
+    }
+  | {
+      readonly kind: "setGlyphMetricsKey";
+      readonly setGlyphMetricsKey: SetGlyphMetricsKey;
+    }
+  | {
+      readonly kind: "linkMetricsSide";
+      readonly linkMetricsSide: LinkMetricsSide;
+    }
+  | {
+      readonly kind: "unlinkMetricsSide";
+      readonly unlinkMetricsSide: UnlinkMetricsSide;
+    }
+  | {
+      readonly kind: "setMarkColor";
+      readonly setMarkColor: SetMarkColor;
+    }
+  | {
+      readonly kind: "duplicateGlyphs";
+      readonly duplicateGlyphs: DuplicateGlyphs;
+    }
+  | {
+      readonly kind: "decomposeGlyphs";
+      readonly decomposeGlyphs: DecomposeGlyphs;
+    }
+  | {
+      readonly kind: "setSidebearings";
+      readonly setSidebearings: SetSidebearings;
+    }
+  | {
+      readonly kind: "createGlyphAxis";
+      readonly createGlyphAxis: CreateGlyphAxis;
+    }
+  | {
+      readonly kind: "editGlyphAxis";
+      readonly editGlyphAxis: EditGlyphAxis;
+    }
+  | {
+      readonly kind: "createLocatedGlyphLayer";
+      readonly createLocatedGlyphLayer: CreateLocatedGlyphLayer;
+    }
+  | {
+      readonly kind: "materializeLocatedGlyphLayer";
+      readonly materializeLocatedGlyphLayer: MaterializeLocatedGlyphLayer;
+    }
+  | {
+      readonly kind: "setGlyphLayerLocation";
+      readonly setGlyphLayerLocation: SetGlyphLayerLocation;
+    }
+  | {
+      readonly kind: "deleteGlyphLayer";
+      readonly deleteGlyphLayer: DeleteGlyphLayer;
+    }
+  | {
+      readonly kind: "setGlyphSwaps";
+      readonly setGlyphSwaps: SetGlyphSwaps;
+    }
+  | {
+      readonly kind: "addGlyphSwap";
+      readonly addGlyphSwap: AddGlyphSwap;
+    }
+  | {
+      readonly kind: "editGlyphSwap";
+      readonly editGlyphSwap: EditGlyphSwap;
+    }
+  | {
+      readonly kind: "setComponentCondition";
+      readonly setComponentCondition: SetComponentCondition;
+    };
 //#endregion
 //#region ../types/src/domain.d.ts
 /** Standard and technical metrics resolved for one authored source. */
@@ -1075,6 +2288,40 @@ export interface HistoryRedo {
   /** Where the step was made; null when nothing was redone or the step changed no document data, as a selection change. */
   location: HistoryLocation | null;
 }
+/**
+ * Applies font edits as one undo step, through the same engine path the
+ * editor's own tools and menus use.
+ *
+ * @remarks
+ * `intents` are the engine's `FontIntent`s, each `{ kind, [kind]: payload }`
+ * (for example `{ kind: "setXAdvance", setXAdvance: { layerId, width } }`).
+ * Rust validates every intent; one it refuses fails the call with its
+ * message, and nothing is kept.
+ *
+ * New entities need ids. Write a placeholder `"new:<prefix>:<key>"` wherever
+ * an id goes (`"new:glyph:a"`, `"new:layer:a"`, `"new:contour:a/0"`,
+ * `"new:point:a/0/3"`); each distinct placeholder becomes one fresh id, the
+ * same everywhere it appears in this call, and `FontEdit.ids` maps it back.
+ * Prefixes: point, contour, anchor, component, glyph, layer, source, axis,
+ * axisLabel, axisMapping, kerningGroup, namedInstance, metric, swap.
+ */
+export interface FontEditInput extends ShiftTarget {
+  /** The undo step's name, as Edit › Undo shows it. */
+  label: string;
+  /** Applied in order, as one undo step. */
+  intents: FontIntent[];
+}
+/** What `edits.apply` did. */
+export interface FontEdit {
+  /** Each `new:` placeholder the call used, to the id it became. */
+  ids: Record<string, string>;
+  /** The layers the edit changed, in the engine's order. */
+  layerIds: LayerId[];
+  /** Glyphs that use a changed glyph as a component, so their drawing changed too. */
+  dependentGlyphIds: GlyphId[];
+  /** True when the edit replaced a font-level collection (glyphs, axes, sources, kerning, metadata). */
+  fontChanged: boolean;
+}
 /** Live application capabilities shared by protocol and plugin hosts. */
 export interface ShiftCapabilities {
   capture(input: ShiftCaptureInput): Promise<ShiftObservation<ShiftCapture>>;
@@ -1190,6 +2437,21 @@ export interface ShiftCapabilities {
   history: {
     undo(input: HistoryInput): Promise<ShiftObservation<HistoryUndo>>;
     redo(input: HistoryInput): Promise<ShiftObservation<HistoryRedo>>;
+  };
+  /**
+   * Font edits: glyphs, outlines, components, anchors, metrics, axes,
+   * sources, instances and kerning, as the editor makes them.
+   *
+   * @remarks
+   * Each call is one undo step (`history.undo` reverses it), marks the
+   * document unsaved and moves `fontRevision`; read again afterwards. With
+   * `ifFontRevision`, it fails with `FontChangedError` and changes nothing when
+   * the font has moved on. A preview of a font file cannot be edited and fails
+   * with `FontEditUnavailableError`; an intent Rust refuses fails with
+   * `FontEditRefusedError`, and nothing is kept.
+   */
+  edits: {
+    apply(input: FontEditInput): Promise<ShiftObservation<FontEdit>>;
   };
 }
 /** Undoes or redoes the window's latest step. */

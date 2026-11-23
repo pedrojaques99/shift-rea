@@ -22,6 +22,7 @@ import { AgentText } from "./AgentText";
 import { AgentDocument } from "./AgentDocument";
 import { ShiftPages } from "./ShiftPages";
 import { ShiftHistory } from "./ShiftHistory";
+import { ShiftFontEdits } from "./ShiftFontEdits";
 
 /** Serves bounded editor observations for one live renderer window. */
 export class AgentBridge {
@@ -53,6 +54,7 @@ export class AgentBridge {
     this.#document = new AgentDocument(
       new ShiftPages(session.editor, this.#editor),
       new ShiftHistory(session.editor),
+      new ShiftFontEdits(session.editor, session.workspace?.editCoordinator ?? null),
       this.#revisions,
     );
   }

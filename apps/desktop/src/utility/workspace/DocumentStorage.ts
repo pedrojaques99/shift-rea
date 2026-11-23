@@ -263,7 +263,16 @@ export class DocumentStorage {
   /** Deletes one app-local workspace and all of its SQLite sidecars. */
   deleteWorkspace(workspaceId: string): void {
     const allocation = this.workspace(workspaceId);
-    fs.rmSync(path.dirname(allocation.storePath), { recursive: true, force: true });
+    const directory = path.dirname(allocation.storePath);
+    try {
+      fs.rmSync(directory, { recursive: true, force: true });
+    } catch (error) {
+      // Windows cannot delete a file another handle still has open, as a
+      // reader of the closed store may; the scratch copy is left behind
+      // rather than failing the close. Elsewhere the delete always succeeds.
+      if (process.platform !== "win32" || !isLockedFileError(error)) throw error;
+      console.warn(`workspace ${workspaceId} left at ${directory}: its files are still open`);
+    }
   }
 
   #bindingPath(address: DocumentAddress): string {
@@ -381,4 +390,10 @@ function assertSafeSegment(label: string, value: string): void {
   if (/^[A-Za-z0-9._-]+$/.test(value) && value !== "." && value !== "..") return;
 
   throw new Error(`invalid ${label}: ${value}`);
+}
+
+/** True for the errors Windows gives deleting a file that is still open. */
+function isLockedFileError(error: unknown): boolean {
+  const code = (error as NodeJS.ErrnoException | null)?.code;
+  return code === "EPERM" || code === "EBUSY";
 }

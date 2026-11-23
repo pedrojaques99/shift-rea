@@ -119,6 +119,7 @@ import { AgentText, type TextCall } from "@/agent/AgentText";
 import { AgentDocument, type DocumentCall } from "@/agent/AgentDocument";
 import { ShiftPages } from "@/agent/ShiftPages";
 import { ShiftHistory } from "@/agent/ShiftHistory";
+import { ShiftFontEdits } from "@/agent/ShiftFontEdits";
 import type { AgentCallMap, DocumentOperation, TextOperation } from "@shared/agent/protocol";
 import { ShiftTextRuns } from "@/agent/ShiftTextRuns";
 import { ShiftFontReader } from "@/agent/ShiftFontReader";
@@ -318,6 +319,7 @@ export class TestEditor extends Editor implements EditorTestSurface {
     this.#agentDocument = new AgentDocument(
       new ShiftPages(this, this.#reads.editor),
       new ShiftHistory(this),
+      new ShiftFontEdits(this, stack.editCoordinator),
       new AgentRevisions(stack.editCoordinator),
     );
     registerBuiltInTools(this);

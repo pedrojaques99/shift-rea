@@ -1,5 +1,6 @@
 import type { AgentCallMap, DocumentOperation } from "@shared/agent/protocol";
 import type { AgentRevisions } from "./AgentRevisions";
+import type { ShiftFontEdits } from "./ShiftFontEdits";
 import type { ShiftHistory } from "./ShiftHistory";
 import type { ShiftPages } from "./ShiftPages";
 
@@ -12,8 +13,9 @@ export type DocumentCall<K extends DocumentOperation> = (
 export type DocumentCalls = { readonly [K in DocumentOperation]: DocumentCall<K> };
 
 /**
- * The document edits an agent makes (`shift.pages` and `shift.history`), for
- * one window: its pages and its undo and redo, behind its font-revision guard.
+ * The document edits an agent makes (`shift.pages`, `shift.history` and
+ * `shift.edits`), for one window: its pages, its undo and redo, and font edits,
+ * behind its font-revision guard.
  *
  * @remarks
  * Each call checks `ifFontRevision` before it changes anything. Page edits
@@ -25,7 +27,12 @@ export class AgentDocument {
   /** The handlers the agent lane serves, by call name. */
   readonly calls: DocumentCalls;
 
-  constructor(pages: ShiftPages, history: ShiftHistory, revisions: AgentRevisions) {
+  constructor(
+    pages: ShiftPages,
+    history: ShiftHistory,
+    edits: ShiftFontEdits,
+    revisions: AgentRevisions,
+  ) {
     this.calls = {
       "pages.create": ({ ifFontRevision, ...input }) =>
         revisions.write(ifFontRevision, async () => pages.create(input)),
@@ -35,6 +42,8 @@ export class AgentDocument {
         revisions.write(ifFontRevision, async () => pages.delete(input)),
       "history.undo": ({ ifFontRevision }) => revisions.write(ifFontRevision, () => history.undo()),
       "history.redo": ({ ifFontRevision }) => revisions.write(ifFontRevision, () => history.redo()),
+      "edits.apply": ({ ifFontRevision, ...input }) =>
+        revisions.write(ifFontRevision, () => edits.apply(input)),
     };
   }
 }

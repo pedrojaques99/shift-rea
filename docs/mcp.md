@@ -1,6 +1,6 @@
 # Connect an AI agent to Shift
 
-Shift exposes the fonts **currently open in the desktop app** through a local [MCP](https://modelcontextprotocol.io/) server that does not edit a font directly (it can undo and redo the window's steps, as Edit › Undo does). Claude Code, Codex, and other HTTP MCP clients can connect directly; no Shift client program or project checkout is required. This is a one-time setup per Shift build and MCP client.
+Shift exposes the fonts **currently open in the desktop app** through a local [MCP](https://modelcontextprotocol.io/) server. Agents can read and render fonts and edit them as the editor does (`shift.edits.apply`, one undo step per call); they never write files. Claude Code, Codex, and other HTTP MCP clients can connect directly; no Shift client program or project checkout is required. This is a one-time setup per Shift build and MCP client.
 
 ## Turn on agent connections
 
@@ -15,7 +15,7 @@ Shift exposes the fonts **currently open in the desktop app** through a local [M
 | Shift Dev         | `shift-dev`         | `http://127.0.0.1:17463/mcp` |
 | Shift Nightly Dev | `shift-nightly-dev` | `http://127.0.0.1:17464/mcp` |
 
-There is no token. The server answers only on `127.0.0.1`, rejects requests whose `Host` is not local (DNS rebinding), and rejects browser requests from non-local origins, so a web page cannot reach it. Any program running on your computer can connect while the setting is on; turn it off when you don't need it. Agents can inspect, render, and capture fonts, control what a Shift window shows, and write the proof text on the canvas and its Text caret (see below), but cannot change fonts or files.
+There is no token. The server answers only on `127.0.0.1`, rejects requests whose `Host` is not local (DNS rebinding), and rejects browser requests from non-local origins, so a web page cannot reach it. Any program running on your computer can connect while the setting is on; turn it off when you don't need it. Agents can inspect, render, and capture fonts, control what a Shift window shows, write the proof text on the canvas and its Text caret, and edit the font with `shift.edits.apply` (see below), but cannot write files.
 
 ### Claude Code
 
@@ -47,6 +47,10 @@ Agents can control what a Shift window shows, through the same paths as its menu
 - `shift.commands.list({ windowId })` lists the app commands an agent may run: the ones that change only the view or session state (Zoom In, Zoom Out, Show Grid, Snap to Grid, the interface size commands, Select All, Deselect, Close Tab, Settings), each with its menu `title`, its `shortcut`, and whether it is `enabled` now. `shift.commands.run({ windowId, command })` runs one as its menu item does; Close Tab closes the shown tab; with only the glyph overview left it fails with `LastTabError` and the window stays open, since agents do not close windows. Commands that edit font data (Undo and Redo included, since they replay font edits; agents use `shift.history`, below), touch files (Save, Save As, Export, Open, New) or act outside the window (Copy, other windows, help links, updates) are not listed, and running one fails with `CommandNotRunnableError`.
 - `shift.editor.setTool({ windowId, tool })` switches tools, `showPage({ windowId, pageId })` shows a page from `editor.inspect`'s `pages`, `openGlyph({ windowId, glyph })` opens a glyph (`{ name }` or `{ glyphId }`) in its tab, as double-clicking it in the overview does, `setView({ windowId, zoom?, center?, grid? })` zooms and centres the canvas and changes the grid settings it names (`visible`, `snap`, and the font's saved cells `spacingX`, `spacingY`, `subdivisions`, whose change is an undoable font edit), and `select({ windowId, ids })` replaces the selection (an empty list clears it). Each answers with the editor inspection afterwards. `editor.inspect` reports the grid as `grid` and the camera as `viewport: { zoom, center }`; `center` is in the open glyph's units (font units, y up) while a glyph is open, and in the page's units otherwise.
 - With `ifFontRevision`, a call fails with `FontChangedError` and does nothing when the font has moved on. Other failures are typed: `CommandNotFoundError`, `CommandNotRunnableError`, `CommandDisabledError`, `ToolNotFoundError`, `PageNotFoundError`, `GlyphNotFoundError`, `ObjectNotFoundError`, `LastTabError`, and `CanvasHiddenError` (centring a canvas that is not shown yet).
+
+## What the connection can edit
+
+`shift.edits.apply({ windowId, label, intents, ifFontRevision? })` applies the engine's `FontIntent`s (listed in `shift.describe`) as one undo step named `label`, through the same path the editor's tools take: glyphs, outlines, components, anchors, sidebearings and metrics keys, axes, sources, instances and kerning. Rust validates every intent; one it refuses fails the call with `FontEditRefusedError` and nothing is kept. New entities take `"new:<prefix>:<key>"` placeholders for ids, minted once per call and returned in `ids`. A preview of a font file fails with `FontEditUnavailableError`. The edit marks the document unsaved and moves `fontRevision`; saving and exporting stay with the user. See `shift.guide` topic `editing` for recipes.
 
 ## What the connection can read
 

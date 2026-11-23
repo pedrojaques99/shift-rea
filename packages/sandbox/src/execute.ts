@@ -5,7 +5,12 @@ import {
   type QuickJSContext,
   type QuickJSWASMModule,
 } from "quickjs-emscripten-core";
-import { ShiftReadScope, shiftInputSchemas, type ShiftCapabilities } from "@shift/runtime";
+import {
+  ShiftReadScope,
+  shiftInputSchemas,
+  type FontEditInput,
+  type ShiftCapabilities,
+} from "@shift/runtime";
 
 const EXECUTION_TIMEOUT_MS = 3_000;
 const MEMORY_LIMIT_BYTES = 16 * 1024 * 1024;
@@ -113,6 +118,7 @@ export async function executeShiftCode(
     __shiftPagesDelete: validated.pages.delete,
     __shiftHistoryUndo: validated.history.undo,
     __shiftHistoryRedo: validated.history.redo,
+    __shiftEditsApply: validated.edits.apply,
   } satisfies Record<string, (input: never) => Promise<unknown>>;
   for (const [name, call] of Object.entries(documentCalls)) {
     installAsyncJsonFunction(vm, name, deadline, (input) => call(input as never));
@@ -196,6 +202,9 @@ export async function executeShiftCode(
       history: Object.freeze({
         undo: async (input) => JSON.parse(await __shiftHistoryUndo(input)),
         redo: async (input) => JSON.parse(await __shiftHistoryRedo(input)),
+      }),
+      edits: Object.freeze({
+        apply: async (input) => JSON.parse(await __shiftEditsApply(input)),
       }),
       read: async (target, callback) => {
         if (typeof callback !== "function") throw new TypeError("shift.read requires a callback");
@@ -356,6 +365,11 @@ function validatedCapabilities(capabilities: ShiftCapabilities): ShiftCapabiliti
     history: {
       undo: (input) => capabilities.history.undo(shiftInputSchemas["history.undo"].parse(input)),
       redo: (input) => capabilities.history.redo(shiftInputSchemas["history.redo"].parse(input)),
+    },
+    edits: {
+      // Placeholders and ids stay strings here; the renderer mints and Rust checks them.
+      apply: (input) =>
+        capabilities.edits.apply(shiftInputSchemas["edits.apply"].parse(input) as FontEditInput),
     },
   };
 }

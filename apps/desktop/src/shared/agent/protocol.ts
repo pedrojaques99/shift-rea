@@ -12,6 +12,8 @@ import type {
   GlyphPage,
   GlyphSelector,
   GlyphSummary,
+  FontEdit,
+  FontEditInput,
   HistoryInput,
   HistoryRedo,
   HistoryUndo,
@@ -227,6 +229,10 @@ export type AgentCallMap = {
     request: ShiftReadInput<HistoryInput> & { ifFontRevision?: FontRevision };
     response: ShiftObservation<HistoryRedo>;
   };
+  "edits.apply": {
+    request: ShiftReadInput<FontEditInput> & { ifFontRevision?: FontRevision };
+    response: ShiftObservation<FontEdit>;
+  };
   /**
    * Calls one agent reader's method with `args` once pending edits settle,
    * returning its plain result. Only the E2E read hook sends it.
@@ -243,7 +249,7 @@ export type TextOperation = Extract<keyof AgentCallMap, `text.${string}`>;
 /** The agent lane's document edits: the pages list's (`pages.*`) and Edit › Undo and Redo (`history.*`). */
 export type DocumentOperation = Extract<
   keyof AgentCallMap,
-  `pages.${string}` | `history.${string}`
+  `pages.${string}` | `history.${string}` | `edits.${string}`
 >;
 
 /** The agent-lane calls that change what the editor shows, each answering with its view. */

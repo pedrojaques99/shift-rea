@@ -9,7 +9,8 @@ const outputPath = resolve(repoRoot, "packages/types/src/bridge/generated.ts");
 const protocolInput = resolve(repoRoot, "crates/shift-bridge/protocol.ts");
 const protocolOutput = resolve(repoRoot, "packages/types/src/bridge/protocol.ts");
 
-const source = readFileSync(inputPath, "utf8");
+// napi can write CRLF on Windows; the matches below expect LF.
+const source = readFileSync(inputPath, "utf8").replace(/\r\n/g, "\n");
 
 const idImportMatch = source.match(/import type \{\s*([\s\S]*?)\s*\} from "@shift\/types";\n/);
 const headerImports = idImportMatch

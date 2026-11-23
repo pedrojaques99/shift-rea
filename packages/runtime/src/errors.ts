@@ -63,6 +63,30 @@ export class LastPageError extends Error {
 }
 
 /**
+ * Thrown when an agent asks to edit a preview of a font file opened directly,
+ * which takes no edits; it has to be saved as a document first.
+ */
+export class FontEditUnavailableError extends Error {
+  override readonly name = "FontEditUnavailableError";
+
+  constructor() {
+    super(
+      "This window previews a font file, which agents cannot edit; save it as a .shift document first",
+    );
+  }
+}
+
+/** Thrown when the engine refuses a font edit; the message is Rust's, and nothing was kept. */
+export class FontEditRefusedError extends Error {
+  override readonly name = "FontEditRefusedError";
+}
+
+/** Thrown when a font edit's `new:` placeholder names a prefix ids do not use. */
+export class FontEditPlaceholderError extends Error {
+  override readonly name = "FontEditPlaceholderError";
+}
+
+/**
  * Thrown when undo or redo is asked of a window with no undo history: a
  * preview of a font file opened directly, where Edit › Undo and Redo are
  * disabled too.

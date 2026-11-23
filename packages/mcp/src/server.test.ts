@@ -144,6 +144,11 @@ const capabilities: ShiftCapabilities = {
       throw new Error("No open Shift window");
     },
   },
+  edits: {
+    async apply() {
+      throw new Error("No open Shift window");
+    },
+  },
 };
 
 const execute = (code: string) => executeShiftCode(capabilities, code);
@@ -290,7 +295,9 @@ describe("Shift MCP local connection", () => {
 
     expect(initialized).toMatchObject({
       result: {
-        instructions: expect.stringMatching(/does not edit a font.*shift\.pages.*shift\.history/),
+        instructions: expect.stringMatching(
+          /shift\.pages.*shift\.edits\.apply.*one undo step.*never writes files.*shift\.history/,
+        ),
       },
     });
     const [{ text }] = (described as { result: { content: [{ text: string }] } }).result.content;
@@ -332,9 +339,7 @@ describe("Shift MCP local connection", () => {
 
     expect(initialized).toMatchObject({
       result: {
-        instructions: expect.stringMatching(
-          /does not edit a font or a file directly.*shift\.commands/,
-        ),
+        instructions: expect.stringMatching(/shift\.commands.*shift\.edits\.apply/),
       },
     });
     expect(described).toMatchObject({
