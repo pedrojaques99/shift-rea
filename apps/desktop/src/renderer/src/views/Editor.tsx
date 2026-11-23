@@ -8,6 +8,7 @@ import { Toolbar } from "@/components/chrome/Toolbar";
 import { useSidebarLayout } from "@/components/chrome/useSidebarLayout";
 import { useToolbarDock } from "@/components/chrome/useToolbarDock";
 import { LeftSidebar } from "@/components/editor/LeftSidebar";
+import { AgentChatDock } from "@/components/agent-chat/AgentChatDock";
 import { RightSidebar } from "@/components/editor/RightSidebar";
 import { Canvas } from "@/components/editor/Canvas";
 import { CanvasContextMenu } from "@/components/editor/CanvasContextMenu";
@@ -195,6 +196,7 @@ const EditorLayout = ({ children }: { children: ReactNode }) => {
               onDockChange={onToolbarDockChange}
             />
             <UpdateStrip className="right-3 bottom-3" />
+            <AgentChatDock />
           </ZoneContainer>
         </ResizablePanel>
         <ResizableHandle

@@ -111,7 +111,7 @@ export class AgentChat {
 
   /** Stops every run, as the app quits. */
   stopAll(): void {
-    for (const runId of [...this.#runs.keys()]) this.stop(runId);
+    for (const runId of this.#runs.keys()) this.stop(runId);
   }
 }
 
