@@ -5,12 +5,14 @@ import type { ResizablePanelHandle, ResizablePanelProps } from "@shift/ui";
 const SIDEBAR_LAYOUT_ANIMATION_DURATION_MS = 150;
 const STORAGE_KEY = "shift:sidebar-layout";
 
-type Side = "left" | "right";
-const SIDES: readonly Side[] = ["left", "right"];
+type Side = "left" | "right" | "agent";
+const SIDES: readonly Side[] = ["left", "right", "agent"];
 
 const SIDEBAR_SIZES = {
   left: { defaultSize: 240, minSize: 160, maxSize: 400 },
   right: { defaultSize: 260, minSize: 180, maxSize: 420 },
+  /** The agent panel at the window's right edge, only in the editor; closed until asked for. */
+  agent: { defaultSize: 360, minSize: 280, maxSize: 640 },
 };
 
 /** A sidebar's width in pixels, kept while it is collapsed so it reopens at that width. */
@@ -20,6 +22,7 @@ function loadLayout(): SidebarLayout {
   const fallback: SidebarLayout = {
     left: { size: SIDEBAR_SIZES.left.defaultSize, collapsed: false },
     right: { size: SIDEBAR_SIZES.right.defaultSize, collapsed: false },
+    agent: { size: SIDEBAR_SIZES.agent.defaultSize, collapsed: true },
   };
   try {
     return { ...fallback, ...JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}") };
@@ -42,8 +45,13 @@ export const useSidebarLayout = (view: "home" | "editor") => {
   const panelRefs = {
     left: useRef<ResizablePanelHandle>(null),
     right: useRef<ResizablePanelHandle>(null),
+    agent: useRef<ResizablePanelHandle>(null),
   };
-  const contentRefs = { left: useRef<HTMLDivElement>(null), right: useRef<HTMLDivElement>(null) };
+  const contentRefs = {
+    left: useRef<HTMLDivElement>(null),
+    right: useRef<HTMLDivElement>(null),
+    agent: useRef<HTMLDivElement>(null),
+  };
   const layoutRef = useRef<SidebarLayout>(null);
   layoutRef.current ??= loadLayout();
   // Re-renders only when a sidebar opens or closes, never while one is dragged.
@@ -51,7 +59,9 @@ export const useSidebarLayout = (view: "home" | "editor") => {
   const syncOpen = (layout: SidebarLayout) => {
     const next = openSides(layout);
     setOpen((previous) =>
-      previous.left === next.left && previous.right === next.right ? previous : next,
+      previous.left === next.left && previous.right === next.right && previous.agent === next.agent
+        ? previous
+        : next,
     );
   };
   const animationTimeoutRef = useRef<number | null>(null);
@@ -107,7 +117,10 @@ export const useSidebarLayout = (view: "home" | "editor") => {
     const groupWidth = group.getBoundingClientRect().width;
     const layout = { ...layoutRef.current! };
     for (const side of SIDES) {
-      const percent = sizes[`${view}-${side}-sidebar`] ?? 0;
+      const id = `${view}-${side}-sidebar`;
+      // The catalog has no agent panel: keep its stored state rather than read it as closed.
+      if (!(id in sizes)) continue;
+      const percent = sizes[id] ?? 0;
       const collapsed = percent === 0;
       layout[side] = {
         size: collapsed ? layout[side].size : (percent / 100) * groupWidth,
@@ -168,11 +181,19 @@ export const useSidebarLayout = (view: "home" | "editor") => {
     rightSidebarOpen: open.right,
     toggleLeftSidebar: () => toggleSidebar("left"),
     toggleRightSidebar: () => toggleSidebar("right"),
+    agentContentRef: contentRefs.agent,
+    agentOpen: open.agent,
+    toggleAgent: () => toggleSidebar("agent"),
+    resetAgent: () => resetSidebar("agent"),
     resetLeftSidebar: () => resetSidebar("left"),
     resetRightSidebar: () => resetSidebar("right"),
   };
 };
 
 function openSides(layout: SidebarLayout): Record<Side, boolean> {
-  return { left: !layout.left.collapsed, right: !layout.right.collapsed };
+  return {
+    left: !layout.left.collapsed,
+    right: !layout.right.collapsed,
+    agent: !layout.agent.collapsed,
+  };
 }

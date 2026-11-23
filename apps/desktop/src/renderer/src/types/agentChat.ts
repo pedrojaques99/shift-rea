@@ -12,6 +12,8 @@ export type ChatEntry =
 export interface AgentChatView {
   providers: readonly ChatProvider[];
   provider: ChatProviderId;
+  /** The model picked for the provider; null when it uses its own default. */
+  model: string | null;
   entries: readonly ChatEntry[];
   /** Whether a reply is being written now. */
   running: boolean;

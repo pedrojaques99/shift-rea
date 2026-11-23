@@ -8,7 +8,7 @@ import { Toolbar } from "@/components/chrome/Toolbar";
 import { useSidebarLayout } from "@/components/chrome/useSidebarLayout";
 import { useToolbarDock } from "@/components/chrome/useToolbarDock";
 import { LeftSidebar } from "@/components/editor/LeftSidebar";
-import { AgentChatDock } from "@/components/agent-chat/AgentChatDock";
+import { AgentChatPanel } from "@/components/agent-chat/AgentChatPanel";
 import { RightSidebar } from "@/components/editor/RightSidebar";
 import { Canvas } from "@/components/editor/Canvas";
 import { CanvasContextMenu } from "@/components/editor/CanvasContextMenu";
@@ -141,6 +141,10 @@ const EditorLayout = ({ children }: { children: ReactNode }) => {
     rightSidebarOpen,
     resetLeftSidebar,
     resetRightSidebar,
+    agentContentRef,
+    agentOpen,
+    toggleAgent,
+    resetAgent,
   } = useSidebarLayout("editor");
   const { dock: toolbarDock, onDockChange: onToolbarDockChange } = useToolbarDock();
 
@@ -167,6 +171,8 @@ const EditorLayout = ({ children }: { children: ReactNode }) => {
         toggleRightSidebar={toggleRightSidebar}
         leftSidebarOpen={leftSidebarOpen}
         rightSidebarOpen={rightSidebarOpen}
+        toggleAgent={toggleAgent}
+        agentOpen={agentOpen}
       />
       <ResizablePanelGroup
         id="editor-layout-panels"
@@ -196,7 +202,6 @@ const EditorLayout = ({ children }: { children: ReactNode }) => {
               onDockChange={onToolbarDockChange}
             />
             <UpdateStrip className="right-3 bottom-3" />
-            <AgentChatDock />
           </ZoneContainer>
         </ResizablePanel>
         <ResizableHandle
@@ -209,6 +214,19 @@ const EditorLayout = ({ children }: { children: ReactNode }) => {
           <div ref={rightSidebarContentRef} className="h-full">
             <ZoneContainer zone="sidebar" className="h-full">
               <RightSidebar />
+            </ZoneContainer>
+          </div>
+        </ResizablePanel>
+        <ResizableHandle
+          aria-label="Resize agent panel"
+          inset="end"
+          disableDoubleClick
+          onDoubleClick={resetAgent}
+        />
+        <ResizablePanel {...sidebarPanelProps("agent")}>
+          <div ref={agentContentRef} className="h-full border-l border-line-subtle">
+            <ZoneContainer zone="sidebar" className="h-full">
+              <AgentChatPanel />
             </ZoneContainer>
           </div>
         </ResizablePanel>

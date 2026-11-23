@@ -5,7 +5,7 @@
  */
 
 /** A command-line agent the chat can run. */
-export type ChatProviderId = "claude" | "codex";
+export type ChatProviderId = "claude" | "codex" | "agy" | "opencode";
 
 /** A provider as the chat lists it. */
 export interface ChatProvider {
@@ -14,6 +14,11 @@ export interface ChatProvider {
   name: string;
   /** Whether its command is on this computer's search path. */
   installed: boolean;
+  /**
+   * Models the provider offers to choose from, as its CLI lists them; empty
+   * when it picks its own (the account's default).
+   */
+  models: string[];
 }
 
 /** One message to the agent. */
@@ -22,6 +27,8 @@ export interface ChatSendRequest {
   prompt: string;
   /** The conversation to continue, from an earlier `started` event; null starts one. */
   sessionId: string | null;
+  /** A model from {@link ChatProvider.models}; null uses the provider's default. */
+  model: string | null;
 }
 
 /** A run the chat started, which `agentChat.stop` can end. */

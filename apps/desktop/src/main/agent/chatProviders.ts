@@ -11,15 +11,27 @@ export interface ChatInvocation {
   url: string;
   /** What the agent should know about the window it works on. */
   context: string;
+  /** A model the user picked; null leaves the provider's default. */
+  model: string | null;
 }
 
 /** How one command-line agent is run and read. */
 export interface ChatAdapter {
   name: string;
   command: string;
-  args(invocation: ChatInvocation): string[];
-  /** The prompt written to the command's standard input. */
+  /** The command's arguments; `prompt` is the message, for commands that take it as an argument. */
+  args(invocation: ChatInvocation, prompt: string): string[];
+  /** The message as the agent receives it: the user's text, with the window's context where needed. */
   prompt(text: string, invocation: ChatInvocation): string;
+  /** Whether the message goes to standard input rather than into the arguments. */
+  stdin: boolean;
+  /**
+   * Files the command reads from its working directory, by name: how agents
+   * without a per-run MCP flag find Shift's server.
+   */
+  workFiles?(invocation: ChatInvocation): Record<string, string>;
+  /** A command to run once before the agent, such as registering Shift's MCP server. */
+  setup?(invocation: ChatInvocation): string[];
   /** The chat events one line of the command's output stands for. */
   read(line: string): ChatEvent[];
 }
@@ -35,7 +47,8 @@ const SHIFT_TOOLS = ["shift.guide", "shift.describe", "shift.execute", "shift.ca
 const claude: ChatAdapter = {
   name: "Claude Code",
   command: "claude",
-  args({ sessionId, newSessionId, serverName, url, context }) {
+  stdin: true,
+  args({ sessionId, newSessionId, serverName, url, context, model }) {
     const config = JSON.stringify({ mcpServers: { [serverName]: { type: "http", url } } });
     const allowed = SHIFT_TOOLS.map((tool) => `mcp__${serverName}__${tool}`).join(",");
     const conversation = sessionId ? ["--resume", sessionId] : ["--session-id", newSessionId];
@@ -51,6 +64,7 @@ const claude: ChatAdapter = {
       allowed,
       "--append-system-prompt",
       context,
+      ...(model ? ["--model", model] : []),
       ...conversation,
     ];
   },
@@ -65,8 +79,10 @@ const claude: ChatAdapter = {
 const codex: ChatAdapter = {
   name: "Codex",
   command: "codex",
-  args({ sessionId, serverName, url }) {
+  stdin: true,
+  args({ sessionId, serverName, url, model }) {
     const common = [
+      ...(model ? ["-m", model] : []),
       "--json",
       "--skip-git-repo-check",
       "-c",
@@ -81,8 +97,142 @@ const codex: ChatAdapter = {
   read: readCodexLine,
 };
 
-/** Every provider the chat can run, by id. */
-export const CHAT_ADAPTERS: Readonly<Record<ChatProviderId, ChatAdapter>> = { claude, codex };
+/**
+ * Antigravity's `agy`, in print mode with `stream-json` output. It has no
+ * per-run MCP flag, so Shift registers its server with `agy mcp add` first
+ * (which adds or updates it) and runs it sandboxed.
+ */
+const agy: ChatAdapter = {
+  name: "Antigravity (agy)",
+  command: "agy",
+  stdin: false,
+  setup: ({ serverName, url }) => ["mcp", "add", "--type", "http", serverName, url],
+  args({ sessionId, model }, prompt) {
+    return [
+      "--output-format",
+      "stream-json",
+      "--sandbox",
+      "--mode",
+      "accept-edits",
+      ...(sessionId ? ["--conversation", sessionId] : []),
+      ...(model ? ["--model", model] : []),
+      `-p=${prompt}`,
+    ];
+  },
+  prompt: (text, { sessionId, context }) =>
+    sessionId
+      ? text
+      : `${context}
+
+---
+
+${text}`,
+  read: readAgyLine,
+};
+
+/**
+ * OpenCode, as `opencode run --format json`. It finds Shift's server in the
+ * `opencode.jsonc` Shift writes in the chat's working directory, which also
+ * denies shell commands and file edits: it changes the font through Shift.
+ */
+const opencode: ChatAdapter = {
+  name: "OpenCode",
+  command: "opencode",
+  stdin: false,
+  workFiles: ({ serverName, url }) => ({
+    "opencode.jsonc": JSON.stringify(
+      {
+        $schema: "https://opencode.ai/config.json",
+        mcp: { servers: { [serverName]: { type: "remote", url, oauth: false } } },
+        permissions: [
+          { action: "shell", resource: "*", effect: "deny" },
+          { action: "edit", resource: "*", effect: "deny" },
+        ],
+      },
+      null,
+      2,
+    ),
+  }),
+  args({ sessionId, model }, prompt) {
+    return [
+      "run",
+      "--format",
+      "json",
+      ...(model ? ["-m", model] : []),
+      ...(sessionId ? ["--session", sessionId] : []),
+      prompt,
+    ];
+  },
+  prompt: (text, { sessionId, context }) =>
+    sessionId
+      ? text
+      : `${context}
+
+---
+
+${text}`,
+  read: readOpenCodeLine,
+};
+
+/** Every provider the chat can run, by id, in the order the chat lists them. */
+export const CHAT_ADAPTERS: Readonly<Record<ChatProviderId, ChatAdapter>> = {
+  claude,
+  codex,
+  agy,
+  opencode,
+};
+
+/** One line of `agy --output-format stream-json`, as chat events. */
+export function readAgyLine(line: string): ChatEvent[] {
+  const event = parseLine(line);
+  if (!event) return [];
+
+  if (event.event === "init" && typeof event.conversation_id === "string") {
+    return [{ kind: "started", sessionId: event.conversation_id }];
+  }
+  if (event.event !== "result" || !isObject(event.result)) return [];
+
+  const result = event.result;
+  if (result.status !== "SUCCESS") {
+    const error = typeof result.error === "string" ? result.error : "agy failed";
+    return [{ kind: "finished", ok: false, error, costUsd: null }];
+  }
+  const text = typeof result.response === "string" ? result.response.trim() : "";
+  return [
+    ...(text ? [{ kind: "text", text } satisfies ChatEvent] : []),
+    { kind: "finished", ok: true, error: null, costUsd: null },
+  ];
+}
+
+/** One line of `opencode run --format json`, as chat events. */
+export function readOpenCodeLine(line: string): ChatEvent[] {
+  const event = parseLine(line);
+  if (!event) return [];
+
+  const part = isObject(event.part) ? event.part : null;
+  switch (event.type) {
+    case "step_start":
+      return typeof event.sessionID === "string"
+        ? [{ kind: "started", sessionId: event.sessionID }]
+        : [];
+    case "text":
+      return typeof part?.text === "string" && part.text.trim()
+        ? [{ kind: "text", text: part.text }]
+        : [];
+    case "tool_use": {
+      const state = isObject(part?.state) ? part.state : null;
+      const name = typeof part?.tool === "string" ? toolName(part.tool) : "tool";
+      return [{ kind: "tool", name, summary: toolSummary(state?.input) }];
+    }
+    case "error": {
+      const error = isObject(event.error) ? event.error : null;
+      const message = typeof error?.message === "string" ? error.message : "OpenCode failed";
+      return [{ kind: "finished", ok: false, error: message, costUsd: null }];
+    }
+    default:
+      return [];
+  }
+}
 
 /** One line of Claude Code's `stream-json` output, as chat events. */
 export function readClaudeLine(line: string): ChatEvent[] {

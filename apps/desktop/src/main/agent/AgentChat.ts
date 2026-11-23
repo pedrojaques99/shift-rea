@@ -33,14 +33,24 @@ export interface ChatTarget {
 export class AgentChat {
   // non-reactive: process handles, owned by main and never rendered.
   readonly #runs = new Map<string, ChildProcess>();
+  readonly #workDir: string;
 
-  /** The providers, and whether each one's command is installed. */
+  /** @param workDir - The agents' working directory; it holds their per-run config files. */
+  constructor(workDir: string = path.join(os.tmpdir(), "shift-agent-chat")) {
+    this.#workDir = workDir;
+  }
+
+  /** The providers found on this computer, and the models each lets the user pick. */
   providers(): ChatProvider[] {
-    return (Object.keys(CHAT_ADAPTERS) as ChatProviderId[]).map((id) => ({
-      id,
-      name: CHAT_ADAPTERS[id].name,
-      installed: commandFor(id) !== null,
-    }));
+    return (Object.keys(CHAT_ADAPTERS) as ChatProviderId[]).map((id) => {
+      const command = commandFor(id);
+      return {
+        id,
+        name: CHAT_ADAPTERS[id].name,
+        installed: command !== null,
+        models: command ? listModels(id, command) : [],
+      };
+    });
   }
 
   /**
@@ -60,10 +70,25 @@ export class AgentChat {
       serverName: target.serverName,
       url: target.url,
       context: chatContext(target),
+      model: request.model,
     };
+    fs.mkdirSync(this.#workDir, { recursive: true });
+    for (const [name, content] of Object.entries(adapter.workFiles?.(invocation) ?? {})) {
+      fs.writeFileSync(path.join(this.#workDir, name), content);
+    }
+    const setup = adapter.setup?.(invocation);
+    if (setup) {
+      spawnSync(command[0], [...command.slice(1), ...setup], {
+        cwd: this.#workDir,
+        windowsHide: true,
+        timeout: 30_000,
+      });
+    }
+
+    const prompt = adapter.prompt(request.prompt, invocation);
     const runId = crypto.randomUUID();
-    const child = spawn(command[0], [...command.slice(1), ...adapter.args(invocation)], {
-      cwd: os.tmpdir(),
+    const child = spawn(command[0], [...command.slice(1), ...adapter.args(invocation, prompt)], {
+      cwd: this.#workDir,
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -92,7 +117,7 @@ export class AgentChat {
       emit({ kind: "finished", ok: code === 0, error, costUsd: null });
     });
 
-    child.stdin?.end(adapter.prompt(request.prompt, invocation));
+    child.stdin?.end(adapter.stdin ? prompt : undefined);
     return { runId };
   }
 
@@ -113,6 +138,30 @@ export class AgentChat {
   stopAll(): void {
     for (const runId of this.#runs.keys()) this.stop(runId);
   }
+}
+
+/** Models a provider's CLI lists, for those that let the user pick one; cached per provider. */
+const modelCache = new Map<ChatProviderId, string[]>();
+function listModels(provider: ChatProviderId, command: string[]): string[] {
+  if (provider !== "opencode") return [];
+
+  const cached = modelCache.get(provider);
+  if (cached) return cached;
+
+  const result = spawnSync(command[0], [...command.slice(1), "models"], {
+    windowsHide: true,
+    encoding: "utf8",
+    timeout: 20_000,
+  });
+  const models =
+    result.status === 0
+      ? result.stdout
+          .split(/\r?\n/)
+          .map((line) => line.trim())
+          .filter((line) => /^[\w.-]+\/[\w.:-]+$/.test(line))
+      : [];
+  modelCache.set(provider, models);
+  return models;
 }
 
 /** What the agent should know: which window, and how to work on its font. */
@@ -154,17 +203,19 @@ function which(command: string): string | null {
 }
 
 /**
- * Runs an npm `.cmd` shim's script with node directly: a shim needs a shell,
- * and a shell would mangle the quotes in the agent's arguments.
+ * What an npm `.cmd` shim runs, without the shim: a shim needs a shell, and a
+ * shell would mangle the quotes in the agent's arguments. Shims start either
+ * a script with node (Codex) or a bundled executable (OpenCode).
  */
 function windowsShim(found: string): string[] | null {
   if (!found.toLowerCase().endsWith(".cmd")) return null;
 
   const shim = fs.readFileSync(found, "utf8");
-  const script = /"%(?:~?dp0)%\\([^"]+\.js)"/i.exec(shim);
-  if (!script) return null;
+  const target = /"%~?dp0%\\(node_modules\\[^"]+\.(?:js|exe))"/i.exec(shim);
+  if (!target) return null;
 
-  return ["node", path.join(path.dirname(found), script[1])];
+  const resolved = path.join(path.dirname(found), target[1]);
+  return resolved.toLowerCase().endsWith(".exe") ? [resolved] : ["node", resolved];
 }
 
 function readLines(child: ChildProcess, onLine: (line: string) => void): void {

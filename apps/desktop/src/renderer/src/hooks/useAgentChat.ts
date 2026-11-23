@@ -11,7 +11,40 @@ export interface AgentChatActions {
   /** Starts a fresh conversation with the current provider. */
   reset(): void;
   setProvider(provider: ChatProviderId): void;
+  setModel(model: string | null): void;
   allowConnections(): Promise<void>;
+}
+
+const MODEL_STORAGE_KEY = "shift:agent-chat-models";
+
+/** The model the user last picked for each provider, kept on this computer. */
+function storedModels(): Partial<Record<ChatProviderId, string>> {
+  try {
+    return JSON.parse(window.localStorage.getItem(MODEL_STORAGE_KEY) ?? "{}");
+  } catch {
+    return {};
+  }
+}
+
+function storeModel(provider: ChatProviderId, model: string | null): void {
+  try {
+    const models = storedModels();
+    if (model) models[provider] = model;
+    else delete models[provider];
+    window.localStorage.setItem(MODEL_STORAGE_KEY, JSON.stringify(models));
+  } catch {
+    // Without storage the pick lasts for this session.
+  }
+}
+
+/** The model to start with: the user's last pick, else an OpenCode Go model, else the default. */
+function initialModel(provider: ChatProvider | undefined): string | null {
+  if (!provider || provider.models.length === 0) return null;
+
+  const stored = storedModels()[provider.id];
+  if (stored && provider.models.includes(stored)) return stored;
+
+  return provider.models.find((model) => model.startsWith("opencode-go/")) ?? null;
 }
 
 let entryCount = 0;
@@ -31,7 +64,8 @@ function entryId(): string {
 export function useAgentChat(): AgentChatView & AgentChatActions {
   const connections = useAgentConnections();
   const [providers, setProviders] = useState<readonly ChatProvider[]>([]);
-  const [provider, setProvider] = useState<ChatProviderId>("claude");
+  const [provider, setProviderId] = useState<ChatProviderId>("claude");
+  const [model, setModelState] = useState<string | null>(null);
   const [entries, setEntries] = useState<readonly ChatEntry[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
   // Session ids are read only when sending, never rendered.
@@ -48,7 +82,10 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
 
       setProviders(list);
       const firstInstalled = list.find(({ installed }) => installed);
-      if (firstInstalled) setProvider(firstInstalled.id);
+      if (!firstInstalled) return;
+
+      setProviderId(firstInstalled.id);
+      setModelState(initialModel(firstInstalled));
     };
     void load();
     return () => {
@@ -91,6 +128,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
           provider,
           prompt,
           sessionId: sessions.current[provider] ?? null,
+          model,
         });
         activeRun.current = run.runId;
         setRunId(run.runId);
@@ -102,7 +140,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
         setEntries((list) => [...list, { id: entryId(), kind: "error", text: message }]);
       }
     },
-    [provider, runId, receive],
+    [provider, model, runId, receive],
   );
 
   const stop = useCallback(async () => {
@@ -118,6 +156,22 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
     setEntries([]);
   }, [provider]);
 
+  const setProvider = useCallback(
+    (next: ChatProviderId) => {
+      setProviderId(next);
+      setModelState(initialModel(providers.find(({ id }) => id === next)));
+    },
+    [providers],
+  );
+
+  const setModel = useCallback(
+    (next: string | null) => {
+      setModelState(next);
+      storeModel(provider, next);
+    },
+    [provider],
+  );
+
   const allowConnections = useCallback(async () => {
     await getShiftHost().agentConnections.setAllowed(true);
   }, []);
@@ -125,6 +179,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
   return {
     providers,
     provider,
+    model,
     entries,
     running: runId !== null,
     connectionsOff: connections !== null && connections.status !== "listening",
@@ -132,6 +187,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
     stop,
     reset,
     setProvider,
+    setModel,
     allowConnections,
   };
 }

@@ -19,11 +19,13 @@ import {
   Tooltip,
   cn,
 } from "@shift/ui";
-import type { ChatProviderId } from "@shared/agent/chat";
 import { useAgentChat } from "@/hooks/useAgentChat";
 import type { ChatEntry } from "@/types/agentChat";
 
 /** Starting points that show what the agent can do with the open font. */
+/** The model option that leaves the provider's own default. */
+const DEFAULT_MODEL = "__default__";
+
 const SUGGESTIONS = [
   "Draw the O in the style of the H",
   "Check the font and fix what you find",
@@ -40,6 +42,7 @@ export function AgentChatPanel() {
   const [draft, setDraft] = useState("");
   const viewport = useRef<HTMLDivElement>(null);
   const installed = chat.providers.filter(({ installed: has }) => has);
+  const models = chat.providers.find(({ id }) => id === chat.provider)?.models ?? [];
 
   useEffect(() => {
     const element = viewport.current;
@@ -62,14 +65,27 @@ export function AgentChatPanel() {
 
   return (
     <section aria-label="Agent" className="flex h-full min-h-0 flex-col bg-surface">
-      <header className="flex items-center gap-2 border-b border-line-subtle py-2 pr-10 pl-3">
+      <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
         <h2 className="text-sm font-medium text-primary">Agent</h2>
-        <ProviderSelect
+        <HeaderSelect
+          label="Agent"
           value={chat.provider}
-          providers={installed.map(({ id, name }) => ({ id, name }))}
+          options={installed.map(({ id, name }) => ({ id, label: name }))}
           disabled={chat.running}
           onChange={chat.setProvider}
         />
+        {models.length > 0 ? (
+          <HeaderSelect
+            label="Model"
+            value={chat.model ?? DEFAULT_MODEL}
+            options={[
+              { id: DEFAULT_MODEL, label: "Default model" },
+              ...models.map((model) => ({ id: model, label: model })),
+            ]}
+            disabled={chat.running}
+            onChange={(next) => chat.setModel(next === DEFAULT_MODEL ? null : next)}
+          />
+        ) : null}
         <Tooltip content="New conversation">
           <Button
             variant="ghost"
@@ -203,7 +219,8 @@ function EmptyState({
   if (noProvider) {
     return (
       <li className="text-ui text-secondary">
-        Install Claude Code or Codex and sign in; the agent uses your own subscription.
+        Install Claude Code, Codex, agy or OpenCode and sign in; the agent uses your own
+        subscription.
       </li>
     );
   }
@@ -224,29 +241,32 @@ function EmptyState({
   );
 }
 
-function ProviderSelect({
+function HeaderSelect<Value extends string>({
+  label,
   value,
-  providers,
+  options,
   disabled,
   onChange,
 }: {
-  value: ChatProviderId;
-  providers: readonly { id: ChatProviderId; name: string }[];
+  label: string;
+  value: Value;
+  options: readonly { id: Value; label: string }[];
   disabled: boolean;
-  onChange: (provider: ChatProviderId) => void;
+  onChange: (value: Value) => void;
 }) {
-  const name = providers.find(({ id }) => id === value)?.name ?? "No agent";
+  const current =
+    options.find((option) => option.id === value)?.label ?? `No ${label.toLowerCase()}`;
 
   return (
     <Select
       value={value}
-      disabled={disabled || providers.length === 0}
+      disabled={disabled || options.length === 0}
       onValueChange={(next) => {
         if (next !== null) onChange(next);
       }}
     >
-      <SelectTrigger variant="field" aria-label="Agent" className={cn("h-6 w-auto")}>
-        <span className="truncate text-ui">{name}</span>
+      <SelectTrigger variant="field" aria-label={label} className={cn("h-6 w-auto min-w-0")}>
+        <span className="truncate text-ui">{current}</span>
         <span aria-hidden className="flex shrink-0 text-muted">
           <ChevronDown className="h-3 w-3" strokeWidth={1.75} />
         </span>
@@ -255,10 +275,10 @@ function ProviderSelect({
         <SelectPositioner sideOffset={4} align="start">
           <SelectPopup>
             <SelectList>
-              {providers.map(({ id, name: label }) => (
-                <SelectItem key={id} value={id}>
+              {options.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
                   <SelectItemIndicator />
-                  <SelectItemText>{label}</SelectItemText>
+                  <SelectItemText>{option.label}</SelectItemText>
                 </SelectItem>
               ))}
             </SelectList>

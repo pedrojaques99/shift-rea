@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, Check, Copy, Switch, Tooltip } from "@shift/ui";
+import type { ChatProvider } from "@shared/agent/chat";
 import type { AgentConnectionsState } from "@shared/agent/connections";
 import { getShiftHost } from "@/host/shiftHost";
 import { useAgentConnections } from "@/hooks/useAgentConnections";
@@ -43,10 +44,64 @@ export const AgentsSettingsPanel = () => {
         <ConnectionStatus state={state} />
       </div>
 
+      <DetectedAgents />
+
       <ConnectionSteps state={state} />
     </section>
   );
 };
+
+/** The command-line agents found on this computer, which the Agent panel can run. */
+const DetectedAgents = () => {
+  const [providers, setProviders] = useState<readonly ChatProvider[] | null>(null);
+  const [scanning, setScanning] = useState(false);
+
+  const scan = async () => {
+    setScanning(true);
+    try {
+      setProviders(await getShiftHost().agentChat.providers());
+    } finally {
+      setScanning(false);
+    }
+  };
+
+  useEffect(() => {
+    void scan();
+  }, []);
+
+  return (
+    <div className="flex flex-col gap-2" aria-label="Agents on this computer">
+      <div className="flex items-center justify-between gap-4">
+        <h3 className="text-sm text-primary">Agents on this computer</h3>
+        <Button variant="outline" size="sm" disabled={scanning} onClick={() => void scan()}>
+          {scanning ? "Looking…" : "Look again"}
+        </Button>
+      </div>
+      <p className="text-ui text-secondary">
+        The Agent panel runs the ones you are signed in to, with your own subscription, and lets
+        them reach this font only through Shift.
+      </p>
+      <ul className="flex flex-col gap-1">
+        {(providers ?? []).map((provider) => (
+          <li key={provider.id} className="flex items-center gap-2 text-ui">
+            <span aria-hidden className={provider.installed ? "text-accent" : "text-muted"}>
+              ●
+            </span>
+            <span className="text-primary">{provider.name}</span>
+            <span className="text-muted">{agentStatus(provider)}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+function agentStatus(provider: ChatProvider): string {
+  if (!provider.installed) return "not found";
+  if (provider.models.length > 0) return `found · ${provider.models.length} models`;
+
+  return "found";
+}
 
 const ConnectionStatus = ({ state }: { state: AgentConnectionsState }) => {
   const now = useNow(5_000);

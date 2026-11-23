@@ -30,6 +30,10 @@ export interface EditorToolbarProps {
   onToggleLeftSidebar?: () => void;
   /** Shows the right sidebar toggle; omit to hide the button. */
   onToggleRightSidebar?: () => void;
+  /** Whether the agent panel is open, for its toggle's pressed state and label. */
+  agentOpen?: boolean;
+  /** Shows the agent panel toggle, after the sidebar toggles; omit to hide it. */
+  onToggleAgent?: () => void;
 }
 
 /**
@@ -46,6 +50,8 @@ export function EditorToolbar({
   rightSidebarOpen,
   onToggleLeftSidebar,
   onToggleRightSidebar,
+  agentOpen,
+  onToggleAgent,
 }: EditorToolbarProps) {
   const { editor, font } = session;
   const metadata = useSignalState(font.metadataCell);
@@ -91,6 +97,7 @@ export function EditorToolbar({
         {/* Both sidebar toggles sit together, each filled on its side while that sidebar is open. */}
         {leftSidebarToggle}
         {rightSidebarToggle}
+        {onToggleAgent ? <AgentToggle open={agentOpen} onToggle={onToggleAgent} /> : null}
       </div>
     </header>
   );
@@ -182,6 +189,27 @@ function SidebarToggle({ side, open, onToggle }: SidebarToggleProps) {
         />
       </TooltipTrigger>
       <TooltipContent side="bottom">{`Toggle ${side} sidebar`}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+/** Opens or closes the agent panel at the window's right edge. */
+function AgentToggle({ open, onToggle }: { open: boolean | undefined; onToggle: () => void }) {
+  const label = open ? "Hide agent" : "Show agent";
+  return (
+    <Tooltip>
+      <TooltipTrigger>
+        <Button
+          icon={<ShiftIcon name={open ? "agent-open" : "agent"} className="h-4.5 w-4.5" />}
+          aria-label={label}
+          aria-pressed={open}
+          variant="toolbar"
+          size="icon-sm"
+          className="h-7 w-7"
+          onClick={onToggle}
+        />
+      </TooltipTrigger>
+      <TooltipContent side="bottom">Toggle agent</TooltipContent>
     </Tooltip>
   );
 }

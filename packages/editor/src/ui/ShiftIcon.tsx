@@ -1,4 +1,6 @@
 export type ShiftIconName =
+  | "agent"
+  | "agent-open"
   | "align-bottom"
   | "align-center-h"
   | "align-center-v"
@@ -24,6 +26,10 @@ export type ShiftIconName =
   | "sidebar-right-open";
 
 const ICONS: Record<ShiftIconName, string> = {
+  agent:
+    '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">\n<path d="M8 1.75C8.4 5.2 10.8 7.6 14.25 8C10.8 8.4 8.4 10.8 8 14.25C7.6 10.8 5.2 8.4 1.75 8C5.2 7.6 7.6 5.2 8 1.75Z" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>\n</svg>',
+  "agent-open":
+    '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">\n<path d="M8 1.75C8.4 5.2 10.8 7.6 14.25 8C10.8 8.4 8.4 10.8 8 14.25C7.6 10.8 5.2 8.4 1.75 8C5.2 7.6 7.6 5.2 8 1.75Z" fill="currentColor" fill-opacity="0.35" stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>\n</svg>',
   "align-bottom":
     '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">\n<path d="M2 22V20H22V22H2ZM7 18V2H10V18H7ZM14 18V8H17V18H14Z" fill="currentColor"/>\n</svg>',
   "align-center-h":

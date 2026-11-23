@@ -20,6 +20,8 @@ export const Toolbar = ({
   toggleRightSidebar,
   leftSidebarOpen,
   rightSidebarOpen,
+  toggleAgent,
+  agentOpen,
 }: ToolbarProps) => {
   const session = useFontSession();
   const { filename, dirty } = useDocumentChromeState();
@@ -58,6 +60,8 @@ export const Toolbar = ({
           rightSidebarOpen={rightSidebarOpen}
           onToggleLeftSidebar={toggleLeftSidebar}
           onToggleRightSidebar={toggleRightSidebar}
+          agentOpen={agentOpen}
+          onToggleAgent={toggleAgent}
         />
       </div>
       <div className="flex bg-chrome">

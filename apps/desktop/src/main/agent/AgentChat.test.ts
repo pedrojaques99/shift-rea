@@ -2,7 +2,13 @@ import { afterEach, describe, expect, it } from "vitest";
 import path from "node:path";
 import type { ChatEvent } from "@shared/agent/chat";
 import { AgentChat } from "./AgentChat";
-import { CHAT_ADAPTERS, readClaudeLine, readCodexLine } from "./chatProviders";
+import {
+  CHAT_ADAPTERS,
+  readAgyLine,
+  readClaudeLine,
+  readCodexLine,
+  readOpenCodeLine,
+} from "./chatProviders";
 
 const FAKE_CLAUDE = path.join(import.meta.dirname, "fixtures", "fake-claude.mjs");
 const TARGET = { serverName: "shift-dev", url: "http://127.0.0.1:17463/mcp", windowId: 3 };
@@ -18,10 +24,14 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
     const events: ChatEvent[] = [];
 
     await new Promise<void>((resolve) => {
-      chat.send({ provider: "claude", prompt: "draw an O", sessionId: null }, TARGET, (event) => {
-        events.push(event);
-        if (event.kind === "finished") resolve();
-      });
+      chat.send(
+        { provider: "claude", prompt: "draw an O", sessionId: null, model: null },
+        TARGET,
+        (event) => {
+          events.push(event);
+          if (event.kind === "finished") resolve();
+        },
+      );
     });
 
     expect(events[0]).toEqual({ kind: "started", sessionId: "session-1" });
@@ -33,13 +43,17 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
   });
 
   it("gives Claude Code only Shift's MCP server and only its tools", () => {
-    const args = CHAT_ADAPTERS.claude.args({
-      sessionId: null,
-      newSessionId: "new-id",
-      serverName: "shift-dev",
-      url: TARGET.url,
-      context: "ctx",
-    });
+    const args = CHAT_ADAPTERS.claude.args(
+      {
+        sessionId: null,
+        newSessionId: "new-id",
+        serverName: "shift-dev",
+        url: TARGET.url,
+        context: "ctx",
+        model: null,
+      },
+      "",
+    );
 
     expect(args).toContain("--strict-mcp-config");
     const allowed = args[args.indexOf("--allowedTools") + 1];
@@ -56,13 +70,17 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
   });
 
   it("continues a conversation with the session it started", () => {
-    const args = CHAT_ADAPTERS.claude.args({
-      sessionId: "session-1",
-      newSessionId: "unused",
-      serverName: "shift-dev",
-      url: TARGET.url,
-      context: "ctx",
-    });
+    const args = CHAT_ADAPTERS.claude.args(
+      {
+        sessionId: "session-1",
+        newSessionId: "unused",
+        serverName: "shift-dev",
+        url: TARGET.url,
+        context: "ctx",
+        model: null,
+      },
+      "",
+    );
 
     expect(args.slice(-2)).toEqual(["--resume", "session-1"]);
   });
@@ -74,9 +92,10 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
       serverName: "shift-dev",
       url: TARGET.url,
       context: "ctx",
+      model: null,
     };
 
-    const args = CHAT_ADAPTERS.codex.args(invocation);
+    const args = CHAT_ADAPTERS.codex.args(invocation, "");
 
     expect(args).toEqual(
       expect.arrayContaining([
@@ -103,5 +122,74 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
   it("ignores lines that are not events", () => {
     expect(readClaudeLine("warning: something")).toEqual([]);
     expect(readClaudeLine('{"type":"user"}')).toEqual([]);
+  });
+
+  it("reads OpenCode's JSON events, as `opencode run --format json` writes them", () => {
+    const started = '{"type":"step_start","sessionID":"ses_1","part":{"type":"step-start"}}';
+    const text = '{"type":"text","sessionID":"ses_1","part":{"type":"text","text":"ok"}}';
+    const failed =
+      '{"type":"error","sessionID":"ses_1","error":{"type":"provider.quota","message":"Insufficient balance"}}';
+
+    expect(readOpenCodeLine(started)).toEqual([{ kind: "started", sessionId: "ses_1" }]);
+    expect(readOpenCodeLine(text)).toEqual([{ kind: "text", text: "ok" }]);
+    expect(readOpenCodeLine(failed)).toEqual([
+      { kind: "finished", ok: false, error: "Insufficient balance", costUsd: null },
+    ]);
+  });
+
+  it("points OpenCode at Shift's server through its working-directory config, shell and edits denied", () => {
+    const invocation = {
+      sessionId: null,
+      newSessionId: "x",
+      serverName: "shift-dev",
+      url: TARGET.url,
+      context: "ctx",
+      model: "opencode-go/glm-5.3-flash",
+    };
+
+    const config = JSON.parse(CHAT_ADAPTERS.opencode.workFiles!(invocation)["opencode.jsonc"]);
+    const args = CHAT_ADAPTERS.opencode.args(invocation, "draw");
+
+    expect(config.mcp.servers["shift-dev"]).toEqual({
+      type: "remote",
+      url: TARGET.url,
+      oauth: false,
+    });
+    expect(config.permissions).toEqual(
+      expect.arrayContaining([
+        { action: "shell", resource: "*", effect: "deny" },
+        { action: "edit", resource: "*", effect: "deny" },
+      ]),
+    );
+    expect(args).toEqual(["run", "--format", "json", "-m", "opencode-go/glm-5.3-flash", "draw"]);
+  });
+
+  it("registers Shift's server with agy before it runs, and reads agy's results", () => {
+    const invocation = {
+      sessionId: null,
+      newSessionId: "x",
+      serverName: "shift-dev",
+      url: TARGET.url,
+      context: "ctx",
+      model: null,
+    };
+
+    expect(CHAT_ADAPTERS.agy.setup!(invocation)).toEqual([
+      "mcp",
+      "add",
+      "--type",
+      "http",
+      "shift-dev",
+      TARGET.url,
+    ]);
+    expect(readAgyLine('{"event":"init","conversation_id":"c1"}')).toEqual([
+      { kind: "started", sessionId: "c1" },
+    ]);
+    expect(
+      readAgyLine('{"event":"result","result":{"status":"SUCCESS","response":"Drew the O."}}'),
+    ).toEqual([
+      { kind: "text", text: "Drew the O." },
+      { kind: "finished", ok: true, error: null, costUsd: null },
+    ]);
   });
 });

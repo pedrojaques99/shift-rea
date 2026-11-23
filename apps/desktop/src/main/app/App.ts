@@ -109,7 +109,8 @@ export class App {
     };
   });
   #agentConnections: AgentConnections | null = null;
-  readonly #agentChat = new AgentChat();
+  /** The in-app agent chat; its agents work in a folder of their own beside this build's data. */
+  readonly #agentChat = new AgentChat(path.join(app.getPath("userData"), "agent-chat"));
   #config: AppConfig | null = null;
   #commandLineTool: CommandLineTool | null = null;
   #sandbox: SandboxRuntimeProcess | null = null;
