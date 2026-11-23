@@ -18,8 +18,8 @@ export const AgentsSettingsPanel = () => {
       <header className="flex flex-col gap-1 pr-8">
         <h2 className="text-sm font-medium text-primary">Agents</h2>
         <p className="text-ui text-secondary">
-          Let AI agents on this computer read your open fonts through Shift's MCP server. Agents can
-          inspect and capture Shift, but cannot change your fonts.
+          Let AI agents on this computer work on your open fonts through Shift's MCP server. Agents
+          can inspect, check and edit them; each edit is one undo step, and only you save or export.
         </p>
       </header>
 
