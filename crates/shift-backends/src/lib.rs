@@ -7,6 +7,7 @@ mod atomic;
 mod binary_encoding;
 pub mod errors;
 pub mod export;
+pub mod export_cff;
 mod export_static;
 mod feature_includes;
 pub mod font_loader;

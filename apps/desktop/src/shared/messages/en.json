@@ -88,6 +88,7 @@
   "export.target.static": "Static",
   "export.target.ufo": "UFO",
   "export.output.ttf": "TTF",
+  "export.output.otf": "OTF (CFF)",
   "export.output.woff2": "WOFF2",
   "export.output.designspace": "Designspace",
   "export.output.ufo": "UFO",

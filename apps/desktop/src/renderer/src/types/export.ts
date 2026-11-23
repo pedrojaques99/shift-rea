@@ -10,19 +10,19 @@ export type ExportTarget = (typeof EXPORT_TARGETS)[number];
 export const EXPORT_TARGETS = ["variable", "static", "ufo"] as const;
 
 /**
- * The file format an Export row writes its target as: TrueType or WOFF2 for
- * binaries, a designspace with one UFO per master or a single UFO of the
+ * The file format an Export row writes its target as: TrueType, OpenType
+ * CFF (CFF2 when variable, built by fontmake) or WOFF2 for binaries, a designspace with one UFO per master or a single UFO of the
  * default source for sources.
  */
 export type ExportOutput = (typeof EXPORT_OUTPUTS)[number];
 
 /** Every Export output, as the bridge and the format menu name them. */
-export const EXPORT_OUTPUTS = ["ttf", "woff2", "designspace", "ufo"] as const;
+export const EXPORT_OUTPUTS = ["ttf", "otf", "woff2", "designspace", "ufo"] as const;
 
 /** The outputs each target can be written as, the default first. */
 export const outputsFor = {
-  variable: ["ttf", "woff2"],
-  static: ["ttf", "woff2"],
+  variable: ["ttf", "otf", "woff2"],
+  static: ["ttf", "otf", "woff2"],
   ufo: ["designspace", "ufo"],
 } as const satisfies Record<ExportTarget, readonly ExportOutput[]>;
 
@@ -43,8 +43,12 @@ export interface ExportRowRequest {
 export function exportRequestFor(row: Pick<ExportRow, "target" | "output">): ExportRowRequest {
   switch (row.target) {
     case "variable":
+      if (row.output === "otf") return { format: "otf", encodings: ["ttf"] };
+
       return { format: "ttf", encodings: [binaryEncoding(row.output)] };
     case "static":
+      if (row.output === "otf") return { format: "static-otf", encodings: ["ttf"] };
+
       return { format: "static-ttf", encodings: [binaryEncoding(row.output)] };
     case "ufo":
       return { format: row.output === "ufo" ? "ufo" : "designspace", encodings: ["ttf"] };

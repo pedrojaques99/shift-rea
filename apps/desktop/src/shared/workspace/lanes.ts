@@ -94,9 +94,17 @@ export type WorkspaceDocumentIdentity = {
 /**
  * A format the workspace exports, as the bridge names it: a variable (or,
  * without axes, static) TrueType binary, one static binary per named
- * instance, a designspace with one UFO per master, or a single UFO.
+ * instance, a designspace with one UFO per master, or a single UFO; `otf`
+ * and `static-otf` are the PostScript-flavoured (CFF, or CFF2 when variable)
+ * binaries fontmake builds.
  */
-export type WorkspaceExportFormat = "ttf" | "static-ttf" | "designspace" | "ufo";
+export type WorkspaceExportFormat =
+  | "ttf"
+  | "static-ttf"
+  | "otf"
+  | "static-otf"
+  | "designspace"
+  | "ufo";
 
 /** A file encoding of an exported binary: plain TrueType, or WOFF2 for the web. */
 export type WorkspaceBinaryEncoding = "ttf" | "woff2";

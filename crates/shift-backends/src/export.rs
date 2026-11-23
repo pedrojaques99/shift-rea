@@ -12,6 +12,7 @@
 //! TTF re-encoded, which needs an encoder crate that passes `cargo deny`) and
 //! a Glyphs writer (`glyphs-reader` only reads).
 
+use crate::export_cff::CffBuild;
 use std::path::{Path, PathBuf};
 
 use write_fonts::FontBuilder;
@@ -123,11 +124,25 @@ pub enum ExportFormat {
     /// One static TrueType binary per named instance, written into a
     /// directory; see [`FontExporter::export_static_instances_with`].
     StaticTtf,
+    /// A PostScript-flavoured OpenType binary: CFF for a font without axes,
+    /// a variable CFF2 font otherwise. Built by fontmake, an optional
+    /// external program; see [`crate::export_cff`].
+    Otf,
+    /// One static CFF binary per named instance, written into a directory,
+    /// built by fontmake.
+    StaticOtf,
 }
 
 impl ExportFormat {
     /// Every format, in the order commands list them.
-    pub const ALL: [Self; 4] = [Self::Ttf, Self::Designspace, Self::Ufo, Self::StaticTtf];
+    pub const ALL: [Self; 6] = [
+        Self::Ttf,
+        Self::Designspace,
+        Self::Ufo,
+        Self::StaticTtf,
+        Self::Otf,
+        Self::StaticOtf,
+    ];
 
     /// Returns the lowercase format token used by commands and the bridge.
     pub fn as_str(self) -> &'static str {
@@ -136,6 +151,8 @@ impl ExportFormat {
             Self::Designspace => "designspace",
             Self::Ufo => "ufo",
             Self::StaticTtf => "static-ttf",
+            Self::Otf => "otf",
+            Self::StaticOtf => "static-otf",
         }
     }
 
@@ -145,6 +162,7 @@ impl ExportFormat {
     pub fn extension(self) -> &'static str {
         match self {
             Self::Ttf | Self::StaticTtf => "ttf",
+            Self::Otf | Self::StaticOtf => "otf",
             Self::Designspace => "designspace",
             Self::Ufo => "ufo",
         }
@@ -157,6 +175,8 @@ impl ExportFormat {
             Self::Designspace => "designspace",
             Self::Ufo => "UFO",
             Self::StaticTtf => "static TrueType",
+            Self::Otf => "OpenType (CFF)",
+            Self::StaticOtf => "static OpenType (CFF)",
         }
     }
 
@@ -170,7 +190,7 @@ impl ExportFormat {
         path.extension()
             .and_then(|extension| extension.to_str())
             .and_then(|extension| Self::try_from(extension).ok())
-            .filter(|format| *format != Self::StaticTtf)
+            .filter(|format| !format.writes_directory())
             .ok_or_else(|| ExportError::UnknownExtension {
                 path: path.to_path_buf(),
             })
@@ -185,8 +205,13 @@ impl ExportFormat {
         }
     }
 
+    /// Whether the output path is a directory the format writes files into.
+    pub fn writes_directory(self) -> bool {
+        matches!(self, Self::StaticTtf | Self::StaticOtf)
+    }
+
     fn ensure_output_path(self, path: &Path) -> Result<(), ExportError> {
-        if self == Self::StaticTtf {
+        if self.writes_directory() {
             return Ok(());
         }
         match path.extension().and_then(|ext| ext.to_str()) {
@@ -300,6 +325,19 @@ pub enum ExportError {
         source: std::io::Error,
     },
 
+    #[error(
+        "{} could not run, so CFF fonts can't be built; install it with `pip install fontmake` or set SHIFT_FONTMAKE to its path ({source})",
+        program.to_string_lossy()
+    )]
+    FontmakeMissing {
+        program: std::ffi::OsString,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("fontmake could not build the CFF font: {detail}")]
+    FontmakeFailed { detail: String },
+
     #[error("failed to write {} sources to {path}: {source}", format.name())]
     WriteSources {
         format: ExportFormat,
@@ -387,7 +425,7 @@ impl FontExporter {
         let files = self.plan_with(font, &request, encodings)?;
         ComponentConditions::refuse(font)?;
         if let Some(directory) = request.path.parent()
-            && request.format != ExportFormat::StaticTtf
+            && !request.format.writes_directory()
         {
             create_directory(directory)?;
         }
@@ -399,6 +437,9 @@ impl FontExporter {
             ExportFormat::Ufo => Self::export_ufo(font, &request.path)?,
             ExportFormat::StaticTtf => {
                 self.export_static_instances_with(font, &request.path, encodings)?;
+            }
+            ExportFormat::Otf | ExportFormat::StaticOtf => {
+                Self::export_cff(font, request.format, &request.path)?;
             }
         }
 
@@ -420,19 +461,25 @@ impl FontExporter {
         let family = postscript_safe(font.metadata().family_name.as_deref().unwrap_or("Untitled"));
         let style = postscript_safe(font.metadata().style_name.as_deref().unwrap_or("Regular"));
         let file_name = match format {
-            ExportFormat::Ttf if font.is_variable() => {
+            ExportFormat::Ttf | ExportFormat::Otf if font.is_variable() => {
                 let tags: Vec<&str> = font
                     .axes()
                     .iter()
                     .filter(|axis| axis.role() == AxisRole::External)
                     .map(Axis::tag)
                     .collect();
-                Some(format!("{family}[{}].ttf", tags.join(",")))
+                Some(format!(
+                    "{family}[{}].{}",
+                    tags.join(","),
+                    format.extension()
+                ))
             }
-            ExportFormat::Ttf => Some(format!("{family}-{style}.ttf")),
+            ExportFormat::Ttf | ExportFormat::Otf => {
+                Some(format!("{family}-{style}.{}", format.extension()))
+            }
             ExportFormat::Designspace => Some(format!("{family}.designspace")),
             ExportFormat::Ufo => Some(format!("{family}-{style}.ufo")),
-            ExportFormat::StaticTtf => None,
+            ExportFormat::StaticTtf | ExportFormat::StaticOtf => None,
         };
         FontExportRequest {
             path: file_name.map_or_else(|| directory.to_path_buf(), |name| directory.join(name)),
@@ -494,6 +541,11 @@ impl FontExporter {
                 .into_iter()
                 .flat_map(|file| encodings.paths(&path.join(file.file_name)))
                 .collect()),
+            ExportFormat::Otf => Ok(vec![path.clone()]),
+            ExportFormat::StaticOtf => Ok(Self::static_instance_files(font)?
+                .into_iter()
+                .map(|file| path.join(file.file_name).with_extension("otf"))
+                .collect()),
         }
     }
 
@@ -554,6 +606,33 @@ impl FontExporter {
     ) -> Result<Vec<PathBuf>, ExportError> {
         let bytes = self.compile_ttf(font)?;
         encodings.write(&bytes, ttf_path)
+    }
+
+    /// Writes the designspace into a scratch directory beside `path` and has
+    /// fontmake build `format` from it.
+    fn export_cff(font: &Font, format: ExportFormat, path: &Path) -> Result<(), ExportError> {
+        let parent = path.parent().unwrap_or_else(|| Path::new("."));
+        let scratch_root = if format.writes_directory() {
+            create_directory(path)?;
+            path
+        } else {
+            parent
+        };
+        let scratch = tempfile::Builder::new()
+            .prefix(".shift-cff-")
+            .tempdir_in(scratch_root)
+            .map_err(|source| ExportError::CreateDirectory {
+                path: scratch_root.to_path_buf(),
+                source,
+            })?;
+        let designspace = scratch.path().join("source.designspace");
+        Self::export_designspace(font, &designspace)?;
+        let build = match format {
+            ExportFormat::StaticOtf => CffBuild::Instances,
+            _ if font.is_variable() => CffBuild::Variable,
+            _ => CffBuild::Static,
+        };
+        crate::export_cff::build(&designspace, build, path, scratch.path())
     }
 
     fn export_designspace(font: &impl FontView, path: &Path) -> Result<(), ExportError> {

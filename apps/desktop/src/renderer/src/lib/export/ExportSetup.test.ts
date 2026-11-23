@@ -84,4 +84,15 @@ describe("each row asks the workspace for one export", () => {
     expect(exportRequestFor({ target: "ufo", output: "designspace" }).format).toBe("designspace");
     expect(exportRequestFor({ target: "ufo", output: "ufo" }).format).toBe("ufo");
   });
+
+  it("writes OTF rows as fontmake's CFF builds: one variable binary, or one per instance", () => {
+    expect(exportRequestFor({ target: "variable", output: "otf" })).toEqual({
+      format: "otf",
+      encodings: ["ttf"],
+    });
+    expect(exportRequestFor({ target: "static", output: "otf" })).toEqual({
+      format: "static-otf",
+      encodings: ["ttf"],
+    });
+  });
 });
