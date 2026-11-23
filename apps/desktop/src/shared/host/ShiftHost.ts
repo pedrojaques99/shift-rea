@@ -1,3 +1,4 @@
+import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "../agent/chat";
 import type { CommandId, RendererCommandId } from "../commands";
 import type { UpdateNotice } from "../update/types";
 import type { RendererErrorReport } from "../ipc/contract";
@@ -149,6 +150,22 @@ export interface ShiftHost {
      * @returns an unsubscribe function.
      */
     onZoomChanged: (callback: (percent: number) => void) => () => void;
+  };
+  /**
+   * The in-app agent chat: a command-line agent the user signed in to
+   * (Claude Code, Codex) works on this window's font through Shift's MCP.
+   */
+  agentChat: {
+    providers: () => Promise<ChatProvider[]>;
+    /** Sends one message; replies arrive through {@link onEvent}. */
+    send: (request: ChatSendRequest) => Promise<ChatRun>;
+    stop: (runId: string) => Promise<void>;
+    /**
+     * Subscribes to this window's chat runs.
+     *
+     * @returns an unsubscribe function.
+     */
+    onEvent: (callback: (message: { runId: string; event: ChatEvent }) => void) => () => void;
   };
   /** Whether local agents may connect over MCP, and what they are doing. */
   agentConnections: {

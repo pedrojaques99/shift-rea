@@ -3,6 +3,7 @@ import type { FontSessionMode, WorkspaceDocumentState } from "../workspace/lanes
 import type { UpdateNotice } from "../update/types";
 import type { RecentDocument } from "../recents";
 import type { AgentConnectionsState } from "../agent/connections";
+import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "../agent/chat";
 import type { AgentConnection } from "../agent/protocol";
 import type { AppConfigState, ThemeSetting } from "../config/config";
 import type { DebugOverlays } from "../debug";
@@ -39,6 +40,16 @@ export type RendererErrorReport = {
  */
 export type RendererToMain = {
   "agent.connect": () => AgentConnection;
+  /** The command-line agents the in-app chat can run, and which are installed. */
+  "agentChat.providers": () => ChatProvider[];
+  /**
+   * Sends one chat message from this window; replies arrive as
+   * `agentChat.event`. Rejects when agent connections are off or the
+   * provider is not installed.
+   */
+  "agentChat.send": (request: ChatSendRequest) => ChatRun;
+  /** Stops a chat run this window started. */
+  "agentChat.stop": (runId: string) => void;
   "agentConnections.state": () => AgentConnectionsState;
   /** Persists whether local agents may connect and starts or stops the MCP server. */
   "agentConnections.setAllowed": (allowed: boolean) => AgentConnectionsState;
@@ -115,6 +126,8 @@ export type MainToRenderer = {
   "update.noticeChanged": (notice: UpdateNotice) => void;
   /** Agent connections were allowed or disallowed, failed to start, or saw a request. */
   "agentConnections.changed": (state: AgentConnectionsState) => void;
+  /** One step of a chat run this window started. */
+  "agentChat.event": (message: { runId: string; event: ChatEvent }) => void;
   /** `config.toml` changed in Settings or in another program. */
   "config.changed": (state: AppConfigState) => void;
   /** Recent files changed after an open, Save As, removal, or Clear Menu. */

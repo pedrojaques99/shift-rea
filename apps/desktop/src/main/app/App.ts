@@ -52,6 +52,7 @@ import type { RecentDocumentVisit } from "../../shared/recents";
 import type { CommandId } from "../../shared/commands";
 import { RecentDocuments } from "../recents/RecentDocuments";
 import { SandboxRuntimeProcess } from "../sandbox/SandboxRuntimeProcess";
+import { AgentChat } from "../agent/AgentChat";
 import { AgentConnections } from "../agent/AgentConnections";
 import { AgentCommands } from "../agent/AgentCommands";
 import { publishE2EHooks } from "../agent/e2eHooks";
@@ -108,6 +109,7 @@ export class App {
     };
   });
   #agentConnections: AgentConnections | null = null;
+  readonly #agentChat = new AgentChat();
   #config: AppConfig | null = null;
   #commandLineTool: CommandLineTool | null = null;
   #sandbox: SandboxRuntimeProcess | null = null;
@@ -345,6 +347,7 @@ export class App {
     });
     app.on("will-quit", () => {
       this.#log.info("will quit: disposing app services");
+      this.#agentChat.stopAll();
       void this.#agentConnections?.shutdown();
       this.#config?.close();
       this.#stopSandbox();
@@ -575,6 +578,30 @@ export class App {
       const failure = await shell.openPath(directory);
       if (failure) throw new Error(failure);
     });
+    ipc.handle(ipcMain, "agentChat.providers", () => this.#agentChat.providers());
+    ipc.handle(ipcMain, "agentChat.send", (event, request) => {
+      const window = this.#requireWindowForWebContents(event.sender);
+      const { status, serverName, url } = this.#requireAgentConnections().state;
+      if (status !== "listening") {
+        throw new Error(
+          "Turn on agent connections (Settings → Agents) so the chat can reach this font",
+        );
+      }
+      const contents = event.sender;
+      // The process reports only after send returns, so the run id is set by then.
+      let runId = "";
+      const run = this.#agentChat.send(
+        request,
+        { serverName, url, windowId: window.window.id },
+        (chatEvent) => {
+          if (contents.isDestroyed()) return;
+          ipc.send(contents, "agentChat.event", { runId, event: chatEvent });
+        },
+      );
+      runId = run.runId;
+      return run;
+    });
+    ipc.handle(ipcMain, "agentChat.stop", (_event, runId) => this.#agentChat.stop(runId));
     ipc.handle(ipcMain, "agentConnections.state", () => this.#requireAgentConnections().state);
     ipc.handle(ipcMain, "agentConnections.setAllowed", async (_event, allowed) => {
       const connections = this.#requireAgentConnections();
