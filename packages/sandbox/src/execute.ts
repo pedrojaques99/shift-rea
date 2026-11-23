@@ -66,6 +66,9 @@ export async function executeShiftCode(
   installAsyncJsonFunction(vm, "__shiftGetFont", deadline, (input) =>
     validated.font.get(input as never),
   );
+  installAsyncJsonFunction(vm, "__shiftCheckFont", deadline, (input) =>
+    validated.font.check(input as never),
+  );
   installAsyncJsonFunction(vm, "__shiftResolveLocation", deadline, (input) =>
     validated.locations.resolve(input as never),
   );
@@ -159,6 +162,7 @@ export async function executeShiftCode(
       }),
       font: Object.freeze({
         get: async (input) => JSON.parse(await __shiftGetFont(input)),
+        check: async (input) => JSON.parse(await __shiftCheckFont(input)),
       }),
       locations: Object.freeze({
         resolve: async (input) => JSON.parse(await __shiftResolveLocation(input)),
@@ -314,7 +318,10 @@ function validatedCapabilities(capabilities: ShiftCapabilities): ShiftCapabiliti
       select: (input) =>
         capabilities.editor.select(shiftInputSchemas["editor.select"].parse(input)),
     },
-    font: { get: (input) => capabilities.font.get(shiftInputSchemas["font.get"].parse(input)) },
+    font: {
+      get: (input) => capabilities.font.get(shiftInputSchemas["font.get"].parse(input)),
+      check: (input) => capabilities.font.check(shiftInputSchemas["font.check"].parse(input)),
+    },
     locations: {
       resolve: (input) =>
         capabilities.locations.resolve(shiftInputSchemas["locations.resolve"].parse(input)),

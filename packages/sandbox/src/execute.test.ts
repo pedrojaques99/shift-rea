@@ -89,6 +89,9 @@ const capabilities: ShiftCapabilities = {
         instances: [],
       });
     },
+    async check() {
+      return observation({ findings: [], errors: 0, warnings: 0 });
+    },
   },
   locations: {
     async resolve() {
@@ -879,6 +882,7 @@ function revisionedCapabilities({ advanceAfter }: { advanceAfter?: string } = {}
         sources: [],
         instances: [],
       })),
+      check: capabilities.font.check,
     },
     layers: {
       get: guarded("layers.get", ({ layerId }) => authoredLayer(layerId)),

@@ -50,6 +50,9 @@ const capabilities: ShiftCapabilities = {
     async get() {
       throw new Error("No open Shift window");
     },
+    async check() {
+      throw new Error("No open Shift window");
+    },
   },
   locations: {
     async resolve() {

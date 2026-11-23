@@ -2289,6 +2289,39 @@ export interface HistoryRedo {
   location: HistoryLocation | null;
 }
 /**
+ * Runs the font checks, as `shift-cli check` and a type designer's review do:
+ * interpolation compatibility, outlines (direction, open and degenerate
+ * contours, curves missing a point at their extremes, points a unit or two
+ * off a metric line), advances, kerning and swaps.
+ */
+export interface FontCheckInput extends ShiftTarget {
+  /** Only these glyphs; the whole font when omitted. */
+  glyphs?: GlyphSelector[];
+}
+/** One problem a check found. */
+export interface FontCheckFinding {
+  /** Stable code, such as `O008`: `D` masters, `I` interpolation, `O` outlines, `A` swaps, `K` kerning. */
+  code: string;
+  /** Kebab-case name, such as `missing-extreme`. */
+  name: string;
+  severity: "warning" | "error";
+  /** The glyph concerned, by name; null for a font-wide problem. */
+  glyph: string | null;
+  glyphId: GlyphId | null;
+  /** The master concerned, by name; null when it is not about one master. */
+  source: string | null;
+  sourceId: SourceId | null;
+  /** Zero-based contour index, when the problem is in one contour. */
+  contour: number | null;
+  message: string;
+}
+/** What `font.check` found. */
+export interface FontCheck {
+  findings: FontCheckFinding[];
+  errors: number;
+  warnings: number;
+}
+/**
  * Applies font edits as one undo step, through the same engine path the
  * editor's own tools and menus use.
  *
@@ -2355,6 +2388,8 @@ export interface ShiftCapabilities {
   };
   font: {
     get(input: ShiftTarget): Promise<ShiftObservation<FontOverview>>;
+    /** Runs the font checks on the whole font or some glyphs; fix what they find with `edits.apply`. */
+    check(input: FontCheckInput): Promise<ShiftObservation<FontCheck>>;
   };
   locations: {
     resolve(input: LocationResolveInput): Promise<ShiftObservation<ResolvedLocation>>;

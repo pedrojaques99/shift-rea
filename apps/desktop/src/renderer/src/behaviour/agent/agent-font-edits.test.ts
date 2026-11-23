@@ -108,3 +108,53 @@ describe("agents edit the font as the editor does, one undo step per call", () =
     expect(editor.glyphNamed("a.agent")).toBeNull();
   });
 });
+
+describe("agents check the font before and after they edit it", () => {
+  const editor = useTestEditor();
+
+  it("finds a curve missing its extreme point and a point a unit off the baseline", async () => {
+    const sourceId = editor.source("default")!.id;
+    const layer = "new:layer:bump";
+    await editor.agentDocument("edits.apply", {
+      label: "Draw a flawed bump",
+      intents: [
+        {
+          kind: "createGlyph",
+          createGlyph: { glyphId: "new:glyph:bump", name: "bump.agent", unicodes: [0xe000] },
+        },
+        {
+          kind: "createGlyphLayer",
+          createGlyphLayer: { layerId: layer, glyphId: "new:glyph:bump", sourceId },
+        },
+        {
+          kind: "addContour",
+          addContour: { layerId: layer, contourId: "new:contour:b", closed: true },
+        },
+        {
+          kind: "addPoints",
+          addPoints: {
+            layerId: layer,
+            contourId: "new:contour:b",
+            points: [
+              { id: "new:point:b0", x: 0, y: 1, pointType: "onCurve", smooth: false },
+              { id: "new:point:b1", x: 0, y: 300, pointType: "offCurve", smooth: false },
+              { id: "new:point:b2", x: 400, y: 300, pointType: "offCurve", smooth: false },
+              { id: "new:point:b3", x: 400, y: 1, pointType: "onCurve", smooth: false },
+            ],
+          },
+        },
+        { kind: "setXAdvance", setXAdvance: { layerId: layer, width: 400 } },
+      ] as never,
+    });
+
+    const check = await editor.fontCheck(["bump.agent"]);
+
+    expect(check.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "O008", glyph: "bump.agent", contour: 0 }),
+        expect.objectContaining({ code: "O009", glyph: "bump.agent", severity: "warning" }),
+      ]),
+    );
+    expect(check.warnings).toBeGreaterThanOrEqual(2);
+  });
+});

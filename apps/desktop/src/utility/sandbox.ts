@@ -29,6 +29,7 @@ const capabilities: ShiftCapabilities = {
   },
   font: {
     get: (input) => host.call("shift.font.get", input),
+    check: (input) => host.call("shift.font.check", input),
   },
   locations: {
     resolve: (input) => host.call("shift.locations.resolve", input),

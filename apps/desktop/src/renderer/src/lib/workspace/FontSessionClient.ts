@@ -25,6 +25,7 @@ import type {
   CatalogAtlasWeights,
   GlyphId,
   GlyphPreview,
+  FontFinding,
   GlyphLayerSnapshot,
   GlyphSnapshot,
   GlyphProjection,
@@ -288,6 +289,13 @@ export class FontSessionClient {
     await this.connect();
 
     return this.#workspace().readLayers([...layerIds]);
+  }
+
+  /** Runs the font checks on `glyphIds`, or on the whole font when omitted. */
+  async checkFont(glyphIds?: readonly GlyphId[]): Promise<readonly FontFinding[]> {
+    await this.connect();
+
+    return this.#workspace().checkFont(glyphIds ? [...glyphIds] : undefined);
   }
 
   /**

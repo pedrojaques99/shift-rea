@@ -100,6 +100,7 @@ import type {
   AxisCoordinate,
   EditorTool,
   EditorView,
+  FontCheck,
   FontOverview,
   GlyphSummary,
   KerningGroupSummary,
@@ -1551,6 +1552,11 @@ export class TestEditor extends Editor implements EditorTestSurface {
 
   fontOverview(): FontOverview {
     return this.#reads.font.getFont();
+  }
+
+  fontCheck(glyphNames?: readonly string[]): Promise<FontCheck> {
+    const glyphs = glyphNames?.map((name) => ({ name: name as GlyphName }));
+    return this.#reads.font.check(glyphs);
   }
 
   glyphSource(name: string): GlyphSourceRow | null {

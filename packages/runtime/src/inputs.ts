@@ -107,6 +107,11 @@ export const shiftInputSchemas = {
     ids: z.array(z.string().min(1).max(512).transform(asSelectableId)).max(10_000),
   }),
   "font.get": z.strictObject({ windowId, ifFontRevision }),
+  "font.check": z.strictObject({
+    windowId,
+    ifFontRevision,
+    glyphs: z.array(glyphSelector).max(10_000).optional(),
+  }),
   read: z.strictObject({ windowId }),
   "locations.resolve": z.strictObject({ windowId, ifFontRevision, location }),
   "glyphs.list": z.strictObject({

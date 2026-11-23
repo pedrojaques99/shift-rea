@@ -440,3 +440,66 @@ fn warns_when_feature_code_writes_its_own_rvrn_beside_swaps() {
     assert_eq!(rvrn_findings(&font), 0);
     assert_eq!(Check::SwapsBesideFeatureRvrn.code(), "A003");
 }
+
+#[test]
+fn reports_a_curve_that_bulges_past_its_ends_with_no_point_at_the_extreme() {
+    let mut font = sample_variable_font();
+    edit_layer(&mut font, "Regular", |layer| {
+        layer.clear_contours();
+        let mut arch = Contour::new();
+        arch.add_point(0.0, 0.0, PointType::OnCurve, false);
+        arch.add_point(0.0, 300.0, PointType::OffCurve, false);
+        arch.add_point(400.0, 300.0, PointType::OffCurve, false);
+        arch.add_point(400.0, 0.0, PointType::OnCurve, false);
+        arch.close();
+        layer.add_contour(arch);
+    });
+
+    assert!(glyph_a_findings(&font).contains(&Check::MissingExtreme));
+}
+
+#[test]
+fn keeps_quiet_about_a_curve_with_points_at_its_extremes() {
+    let mut font = sample_variable_font();
+    edit_layer(&mut font, "Regular", |layer| {
+        layer.clear_contours();
+        // A half-round drawn the way type designers draw it: on-curve points at
+        // the left, top and right extremes, handles horizontal or vertical.
+        let mut arch = Contour::new();
+        arch.add_point(0.0, 0.0, PointType::OnCurve, false);
+        arch.add_point(0.0, 120.0, PointType::OffCurve, false);
+        arch.add_point(90.0, 220.0, PointType::OffCurve, false);
+        arch.add_point(200.0, 220.0, PointType::OnCurve, true);
+        arch.add_point(310.0, 220.0, PointType::OffCurve, false);
+        arch.add_point(400.0, 120.0, PointType::OffCurve, false);
+        arch.add_point(400.0, 0.0, PointType::OnCurve, false);
+        arch.close();
+        layer.add_contour(arch);
+    });
+
+    assert!(!glyph_a_findings(&font).contains(&Check::MissingExtreme));
+}
+
+#[test]
+fn reports_a_point_a_unit_off_a_metric_line() {
+    let mut font = sample_variable_font();
+    let baseline_is_a_metric = font.sources()[0]
+        .metric_values()
+        .values()
+        .any(|value| value.position == 0.0);
+    assert!(
+        baseline_is_a_metric,
+        "the sample font's masters have a baseline metric"
+    );
+    edit_layer(&mut font, "Regular", |layer| {
+        layer.clear_contours();
+        layer.add_contour(closed_contour(&[
+            (0.0, 1.0),
+            (0.0, 300.0),
+            (200.0, 300.0),
+            (200.0, 1.0),
+        ]));
+    });
+
+    assert!(glyph_a_findings(&font).contains(&Check::PointOffMetric));
+}

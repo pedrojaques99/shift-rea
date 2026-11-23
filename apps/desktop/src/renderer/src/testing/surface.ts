@@ -36,7 +36,7 @@ import type { ToolName } from "@shift/editor/tools";
 import type { AlignmentType, DistributeType } from "@shift/editor/transform";
 import type { Bounds, Point2D, Rect2D } from "@shift/geo";
 import type { LocalPoint, ScreenPoint, ScreenVector } from "@shift/editor/spaces";
-import type { EditorTool, KerningToolView, ResolvedGlyph } from "@shift/runtime";
+import type { EditorTool, FontCheck, KerningToolView, ResolvedGlyph } from "@shift/runtime";
 import type { AgentCallMap, DocumentOperation, TextOperation } from "@shared/agent/protocol";
 import type {
   AnchorId,
@@ -555,6 +555,8 @@ export interface EditorTestSurface extends EditorReads, EditorActions, FontBuild
   glyphNamed(name: string): GlyphListing | null;
   /** The font's info, metrics, axes, sources and instances, as agents read them. */
   fontOverview(): FontSummary;
+  /** The font checks' findings, as agents read them, for the glyphs named or the whole font. */
+  fontCheck(glyphNames?: readonly string[]): Promise<FontCheck>;
   /** The font's source named `name`, or null. */
   source(selector: SourceSelection): Source | null;
   /**

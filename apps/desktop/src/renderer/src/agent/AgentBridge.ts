@@ -80,6 +80,8 @@ export class AgentBridge {
         ...this.#controlCalls(),
         "font.get": ({ ifFontRevision }) =>
           this.#observe(ifFontRevision, () => this.#reader.getFont()),
+        "font.check": ({ glyphs, ifFontRevision }) =>
+          this.#observe(ifFontRevision, () => this.#reader.check(glyphs)),
         "locations.resolve": ({ location, ifFontRevision }) =>
           this.#observe(ifFontRevision, () => this.#reader.resolveLocation(location)),
         "glyphs.list": ({ ifFontRevision, ...input }) =>

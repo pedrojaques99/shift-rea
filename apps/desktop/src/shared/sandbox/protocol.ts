@@ -19,6 +19,8 @@ import type {
   HistoryInput,
   HistoryRedo,
   HistoryUndo,
+  FontCheck,
+  FontCheckInput,
   FontEdit,
   FontEditInput,
   KerningAtInput,
@@ -115,6 +117,10 @@ export type SandboxHostCallMap = {
   "shift.font.get": {
     request: ShiftTarget;
     response: ShiftObservation<FontOverview>;
+  };
+  "shift.font.check": {
+    request: FontCheckInput;
+    response: ShiftObservation<FontCheck>;
   };
   "shift.locations.resolve": {
     request: LocationResolveInput;

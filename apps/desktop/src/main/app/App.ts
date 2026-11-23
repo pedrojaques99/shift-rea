@@ -1156,6 +1156,8 @@ export class App {
       font: {
         get: ({ windowId, ifFontRevision }) =>
           this.#windowForAgentRequest(windowId).agent.getFont(ifFontRevision),
+        check: ({ windowId, ...input }) =>
+          this.#windowForAgentRequest(windowId).agent.checkFont(input),
       },
       locations: {
         resolve: ({ windowId, location, ifFontRevision }) =>

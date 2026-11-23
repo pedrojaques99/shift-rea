@@ -13,6 +13,7 @@ import type {
   GlyphEntry,
   GlyphHandle,
   GlyphId,
+  FontFinding,
   GlyphLayerSnapshot,
   GlyphPreview,
   GlyphRecord,
@@ -655,6 +656,20 @@ export class Font {
     if (!this.#editCoordinator) throw new Error("Authored layers are unavailable in this font");
 
     return this.#editCoordinator.readLayers(layerIds);
+  }
+
+  /**
+   * Runs the engine's font checks behind pending writes: interpolation,
+   * outlines, advances, kerning and swaps.
+   *
+   * @param glyphIds - Glyphs to check; the whole font when omitted.
+   * @returns Every problem found, with its stable code and severity.
+   * @throws {Error} when workspace authorship is unavailable or a glyph is unknown.
+   */
+  async checkFont(glyphIds?: readonly GlyphId[]): Promise<readonly FontFinding[]> {
+    if (!this.#editCoordinator) throw new Error("Font checks are unavailable in this font");
+
+    return this.#editCoordinator.checkFont(glyphIds);
   }
 
   /** The layer `glyphId` authors in `sourceId`, or `null` when it has none. */

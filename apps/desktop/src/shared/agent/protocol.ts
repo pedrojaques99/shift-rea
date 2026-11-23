@@ -12,6 +12,8 @@ import type {
   GlyphPage,
   GlyphSelector,
   GlyphSummary,
+  FontCheck,
+  FontCheckInput,
   FontEdit,
   FontEditInput,
   HistoryInput,
@@ -103,6 +105,10 @@ export type AgentCallMap = {
   "font.get": {
     request: { ifFontRevision?: FontRevision };
     response: ShiftObservation<FontOverview>;
+  };
+  "font.check": {
+    request: ShiftReadInput<FontCheckInput> & { ifFontRevision?: FontRevision };
+    response: ShiftObservation<FontCheck>;
   };
   "locations.resolve": {
     request: { location: AxisCoordinate[]; ifFontRevision?: FontRevision };

@@ -3,6 +3,7 @@
 //! font's records.
 
 use pack::{Bytes, Pack};
+use shift_font::check::{Finding, Severity};
 use shift_font::wire::replacement::FontReplacement;
 use shift_font::wire::{
   AxisMapping, AxisMappingBasis, FontMetadata, FontMetrics, GlyphChangedEntities,
@@ -11,7 +12,7 @@ use shift_font::wire::{
 };
 use shift_font::{
   DesignLocation, FontChangeImpact, FontChangeSet, FontIntent, FontIntentSet, Glyph, GlyphId,
-  GlyphPreview, GlyphRecordChanges, GlyphRecords, LayerId, Location, OpenTypeCategories,
+  GlyphPreview, GlyphRecordChanges, GlyphRecords, LayerId, Location, OpenTypeCategories, SourceId,
 };
 use shift_workspace::{
   AcquireScope, DocumentIdentity as StoreDocumentIdentity, FontWorkspace, NewWorkspace,
@@ -226,6 +227,21 @@ pub(crate) trait NativeWorkspace {
     location: Location,
   ) -> Result<Vec<GlyphPreview>, NativeWorkspaceError>;
 
+  /// Runs the font checks: interpolation, outlines (direction, open and
+  /// degenerate contours, missing extremes, points just off a metric),
+  /// advances, kerning and swaps. With `glyph_ids`, only those glyphs are
+  /// checked, after loading them and their components; without, the whole
+  /// font, after loading every layer.
+  ///
+  /// # Errors
+  ///
+  /// Fails when no workspace is open, a layer cannot be loaded, or a glyph is
+  /// unknown.
+  fn check_font(
+    &mut self,
+    glyph_ids: Option<Vec<GlyphId>>,
+  ) -> Result<Vec<FontFinding>, NativeWorkspaceError>;
+
   /// Whether the font has axes.
   ///
   /// # Errors
@@ -406,6 +422,39 @@ impl From<SaveState> for shift_store::SaveState {
     match state {
       SaveState::Unsaved => Self::Unsaved,
       SaveState::MatchesSaved => Self::MatchesSaved,
+    }
+  }
+}
+
+/// One problem a font check found, with its stable code (`O008`), kebab-case
+/// name (`missing-extreme`) and how much it matters.
+#[derive(Clone, Debug, PartialEq, Eq, Pack)]
+pub(crate) struct FontFinding {
+  pub code: String,
+  pub name: String,
+  /// `warning` or `error`.
+  pub severity: String,
+  pub glyph_id: Option<GlyphId>,
+  pub source_id: Option<SourceId>,
+  /// Zero-based contour index, when the problem is in one contour.
+  pub contour: Option<u32>,
+  pub message: String,
+}
+
+impl From<Finding> for FontFinding {
+  fn from(finding: Finding) -> Self {
+    let severity = match finding.check.severity() {
+      Severity::Warning => "warning",
+      Severity::Error => "error",
+    };
+    Self {
+      code: finding.check.code().to_owned(),
+      name: finding.check.name().to_owned(),
+      severity: severity.to_owned(),
+      glyph_id: finding.glyph,
+      source_id: finding.source,
+      contour: finding.contour.and_then(|index| u32::try_from(index).ok()),
+      message: finding.message,
     }
   }
 }
@@ -618,6 +667,30 @@ impl NativeWorkspace for Bridge {
         Ok(layer_snapshot(font, glyph_id, layer).map_err(BridgeError::from)?)
       })
       .collect()
+  }
+
+  fn check_font(
+    &mut self,
+    glyph_ids: Option<Vec<GlyphId>>,
+  ) -> Result<Vec<FontFinding>, NativeWorkspaceError> {
+    let findings = match glyph_ids {
+      Some(glyph_ids) => {
+        let font = self.acquire_and_font(&glyph_ids, AcquireScope::ComponentClosure)?;
+        let mut findings = Vec::new();
+        for glyph_id in glyph_ids {
+          findings.extend(font.check_glyph(glyph_id).map_err(BridgeError::from)?);
+        }
+        findings
+      }
+      None => {
+        self
+          .workspace_mut()?
+          .acquire_all_layers()
+          .map_err(BridgeError::from)?;
+        self.font()?.check().map_err(BridgeError::from)?
+      }
+    };
+    Ok(findings.into_iter().map(FontFinding::from).collect())
   }
 
   fn is_variable(&self) -> Result<bool, NativeWorkspaceError> {

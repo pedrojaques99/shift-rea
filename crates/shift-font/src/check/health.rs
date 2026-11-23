@@ -2,7 +2,7 @@
 //! coordinates and advances that can't compile, and outlines that won't
 //! render where the glyph is used.
 
-use kurbo::BezPath;
+use kurbo::{BezPath, ParamCurve, ParamCurveExtrema, PathSeg};
 
 use crate::{CurveSegmentIter, DesignLocation, Font, Glyph, GlyphLayer, Point, Source};
 
@@ -63,6 +63,8 @@ pub(super) fn check(font: &Font, glyph: &Glyph) -> Vec<Finding> {
             continue;
         }
         findings.extend(layer.direction());
+        findings.extend(layer.extremes());
+        findings.extend(layer.off_metric());
 
         let is_default = default.is_some_and(|default| default.id() == source.id());
         findings.extend(layer.resolved(encoded && is_default));
@@ -194,6 +196,77 @@ impl LayerCheck<'_> {
                     ),
                 )
                 .in_contour(index)
+            })
+            .collect()
+    }
+
+    /// Reports curves that bulge past both their ends, horizontally or
+    /// vertically, with no point at the extreme: one finding per contour, at
+    /// its first such curve.
+    fn extremes(&self) -> Vec<Finding> {
+        self.layer
+            .contours_iter()
+            .enumerate()
+            .filter(|(_, contour)| contour.is_closed())
+            .filter_map(|(index, contour)| {
+                let path = BezPath::from(contour);
+                let missing = path.segments().find_map(missing_extreme)?;
+                Some(
+                    self.at(
+                        Check::MissingExtreme,
+                        &format!(
+                            "has a curve in contour {} that reaches its extreme near ({:.0}, {:.0}) with no point there; add one",
+                            index + 1,
+                            missing.x,
+                            missing.y
+                        ),
+                    )
+                    .in_contour(index),
+                )
+            })
+            .collect()
+    }
+
+    /// Reports points that sit within [`NEAR_METRIC`] units of one of the
+    /// master's vertical metrics without sitting on it.
+    fn off_metric(&self) -> Vec<Finding> {
+        let lines = self
+            .source
+            .metric_values()
+            .values()
+            .map(|value| value.position)
+            .filter(|position| position.is_finite())
+            .collect::<Vec<_>>();
+        self.layer
+            .contours_iter()
+            .enumerate()
+            .filter_map(|(index, contour)| {
+                let (point, line) = contour
+                    .points()
+                    .iter()
+                    .filter(|point| point.is_on_curve())
+                    .find_map(|point| {
+                        let near = lines.iter().find(|line| {
+                            let distance = (point.y() - **line).abs();
+                            distance > 0.0 && distance <= NEAR_METRIC
+                        })?;
+                        Some((point, *near))
+                    })?;
+                Some(
+                    self.at(
+                        Check::PointOffMetric,
+                        &format!(
+                            "has a point in contour {} at ({}, {}), {} unit{} off the metric at {}; snap it to the line",
+                            index + 1,
+                            point.x(),
+                            point.y(),
+                            (point.y() - line).abs(),
+                            if (point.y() - line).abs() == 1.0 { "" } else { "s" },
+                            line
+                        ),
+                    )
+                    .in_contour(index),
+                )
             })
             .collect()
     }
@@ -379,4 +452,27 @@ mod tests {
 
         assert!(filled_counters(&[left, right]).is_empty());
     }
+}
+
+/// How close, in font units, a point may come to a metric without sitting on
+/// it before it reads as a near miss.
+const NEAR_METRIC: f64 = 2.0;
+
+/// How far, in font units, a curve must pass its ends before its extreme
+/// needs a point of its own; less is rounding.
+const EXTREME_TOLERANCE: f64 = 1.0;
+
+/// Where `segment` passes both its ends horizontally or vertically, if it does.
+fn missing_extreme(segment: PathSeg) -> Option<kurbo::Point> {
+    let (start, end) = (segment.start(), segment.end());
+    segment.extrema().into_iter().find_map(|t| {
+        if t <= 0.0 || t >= 1.0 {
+            return None;
+        }
+        let point = segment.eval(t);
+        let beyond = |value: f64, a: f64, b: f64| {
+            value > a.max(b) + EXTREME_TOLERANCE || value < a.min(b) - EXTREME_TOLERANCE
+        };
+        (beyond(point.x, start.x, end.x) || beyond(point.y, start.y, end.y)).then_some(point)
+    })
 }

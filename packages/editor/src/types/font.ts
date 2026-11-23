@@ -9,6 +9,7 @@ import type {
   FontSnapshot,
   GlyphEntry,
   GlyphId,
+  FontFinding,
   GlyphLayerSnapshot,
   GlyphPreview,
   GlyphRecord,
@@ -475,6 +476,8 @@ export interface WorkspaceEditCoordinator {
     location: Location,
   ): Promise<readonly GlyphPreview[]>;
   readLayers(layerIds: readonly LayerId[]): Promise<readonly GlyphLayerSnapshot[]>;
+  /** Runs the font checks behind pending edits, on `glyphIds` or the whole font. */
+  checkFont(glyphIds?: readonly GlyphId[]): Promise<readonly FontFinding[]>;
   resolveLayers(layerIds: readonly LayerId[]): Promise<LayerRead[]>;
   mapLocation(location: Location): Promise<Location>;
   settled(): Promise<void>;

@@ -16,6 +16,8 @@ import type {
   ResolvedLocation,
   ShiftSessionMode,
   SourceSelector,
+  FontCheck,
+  FontCheckFinding,
 } from "@shift/runtime";
 import {
   asGlyphId,
@@ -25,6 +27,7 @@ import {
   type NamedInstance,
   type Source,
   type Unicode,
+  type FontFinding,
 } from "@shift/types";
 import type { Font } from "@shift/editor/model";
 import type { Counterparts } from "@shift/wasm/protocol";
@@ -119,6 +122,34 @@ export class ShiftFontReader {
     return {
       items,
       nextCursor: directory.hasMore && last ? btoa(last.id) : null,
+    };
+  }
+
+  /**
+   * Runs the engine's font checks on `glyphs`, or on the whole font, and
+   * names each finding's glyph and master.
+   */
+  async check(glyphs?: readonly GlyphSelector[]): Promise<FontCheck> {
+    const glyphIds = glyphs?.map((selector) => this.#select.glyphId(selector));
+    const raw = await this.#font.checkFont(glyphIds);
+    const findings = raw.map((finding) => this.#checkFinding(finding));
+    const errors = findings.filter(({ severity }) => severity === "error").length;
+    return { findings, errors, warnings: findings.length - errors };
+  }
+
+  #checkFinding(finding: FontFinding): FontCheckFinding {
+    const glyphId = finding.glyphId ?? null;
+    const sourceId = finding.sourceId ?? null;
+    return {
+      code: finding.code,
+      name: finding.name,
+      severity: finding.severity === "error" ? "error" : "warning",
+      glyph: glyphId ? (this.#font.entryForId(glyphId)?.name ?? null) : null,
+      glyphId,
+      source: sourceId ? (this.source({ sourceId })?.name ?? null) : null,
+      sourceId,
+      contour: finding.contour ?? null,
+      message: finding.message,
     };
   }
 

@@ -109,6 +109,12 @@ pub enum Check {
     ContourDirection,
     /// An encoded glyph draws nothing in the default master.
     EmptyOutline,
+    /// A curve bulges past its own ends horizontally or vertically with no
+    /// point there, which hinting, rasterizing and interpolation all prefer.
+    MissingExtreme,
+    /// A point sits within two units of a vertical metric (baseline, x-height,
+    /// cap height and so on) without sitting on it: almost aligned.
+    PointOffMetric,
     /// A glyph can't be drawn, for example because of a component cycle.
     UnresolvedGlyph,
     /// A swap never wins anywhere on the font's axes: its condition
@@ -138,7 +144,7 @@ pub enum Check {
 
 impl Check {
     /// Every check, in code order.
-    pub const ALL: [Self; 29] = [
+    pub const ALL: [Self; 31] = [
         Self::NoDefaultMaster,
         Self::DuplicateMasterLocation,
         Self::MasterOutsideAxis,
@@ -158,6 +164,8 @@ impl Check {
         Self::InvalidAdvance,
         Self::ContourDirection,
         Self::EmptyOutline,
+        Self::MissingExtreme,
+        Self::PointOffMetric,
         Self::UnresolvedGlyph,
         Self::NeverUsedSwap,
         Self::ComponentConditionNotExported,
@@ -207,6 +215,8 @@ impl Check {
             Self::ContourDirection => ("O005", "contour-direction", Severity::Warning),
             Self::EmptyOutline => ("O006", "empty-outline", Severity::Error),
             Self::UnresolvedGlyph => ("O007", "unresolved-glyph", Severity::Error),
+            Self::MissingExtreme => ("O008", "missing-extreme", Severity::Warning),
+            Self::PointOffMetric => ("O009", "point-off-metric", Severity::Warning),
             Self::NeverUsedSwap => ("A001", "never-used-swap", Severity::Warning),
             Self::ComponentConditionNotExported => (
                 "A002",

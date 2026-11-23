@@ -61,6 +61,7 @@ export class SandboxRuntimeProcess {
       "shift.editor.setView": (input) => this.#capabilities.editor.setView(input),
       "shift.editor.select": (input) => this.#capabilities.editor.select(input),
       "shift.font.get": (input) => this.#capabilities.font.get(input),
+      "shift.font.check": (input) => this.#capabilities.font.check(input),
       "shift.locations.resolve": (input) => this.#capabilities.locations.resolve(input),
       "shift.glyphs.list": (input) => this.#capabilities.glyphs.list(input),
       "shift.glyphs.get": (input) => this.#capabilities.glyphs.get(input),

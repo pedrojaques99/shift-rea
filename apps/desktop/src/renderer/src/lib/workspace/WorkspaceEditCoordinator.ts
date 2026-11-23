@@ -4,6 +4,7 @@ import type {
   AppliedChange,
   FontIntent,
   GlyphId,
+  FontFinding,
   GlyphLayerSnapshot,
   GlyphPreview,
   GlyphProjection,
@@ -473,6 +474,11 @@ export class WorkspaceEditCoordinator {
     if (layerIds.length === 0) return [];
 
     return this.#withFlush(() => this.#session.readLayers(layerIds));
+  }
+
+  /** Runs the font checks behind pending authored edits, on `glyphIds` or the whole font. */
+  async checkFont(glyphIds?: readonly GlyphId[]): Promise<readonly FontFinding[]> {
+    return this.#withFlush(() => this.#session.checkFont(glyphIds));
   }
 
   /** Reads exact authored layers with composited geometry behind pending authored edits. */

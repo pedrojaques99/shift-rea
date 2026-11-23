@@ -4,6 +4,7 @@ import type {
   CatalogAtlasWeights,
   FontSnapshot,
   GlyphId,
+  FontFinding,
   GlyphLayerSnapshot,
   GlyphPreview,
   GlyphProjection,
@@ -488,6 +489,14 @@ export interface WorkspaceSync {
   readLayers(layerIds: LayerId[]): Promise<readonly GlyphLayerSnapshot[]>;
 
   /**
+   * Runs the font checks on `glyphIds`, or on the whole font when omitted.
+   *
+   * @returns Every problem found, with its stable code and severity.
+   * @throws {Error} when a glyph is unknown or a layer cannot be loaded.
+   */
+  checkFont(glyphIds?: GlyphId[]): Promise<readonly FontFinding[]>;
+
+  /**
    * Reads exact authored layers with composited geometry at each layer's source.
    *
    * @param layerIds - Layer identities in the order results should follow.
@@ -577,6 +586,7 @@ export const workspaceSyncMethods: LaneMethods<WorkspaceSync> = {
   export: true,
   glyphSnapshots: true,
   readLayers: true,
+  checkFont: true,
   resolveLayers: true,
   glyphProjections: true,
   glyphPreviews: true,

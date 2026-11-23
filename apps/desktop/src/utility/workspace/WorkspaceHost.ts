@@ -3,6 +3,7 @@ import type {
   CatalogAtlasPage,
   CatalogAtlasWeights,
   GlyphId,
+  FontFinding,
   GlyphLayerSnapshot,
   GlyphPreview,
   GlyphProjection,
@@ -277,6 +278,10 @@ export class WorkspaceHost implements WorkspaceShell, WorkspaceSync {
 
   readLayers(layerIds: LayerId[]): Promise<readonly GlyphLayerSnapshot[]> {
     return this.#serialize(() => this.#bridge.workspace.readLayers(layerIds));
+  }
+
+  checkFont(glyphIds?: GlyphId[]): Promise<readonly FontFinding[]> {
+    return this.#serialize(() => this.#bridge.workspace.checkFont(glyphIds ?? null));
   }
 
   resolveLayers(layerIds: LayerId[]): Promise<LayerRead[]> {

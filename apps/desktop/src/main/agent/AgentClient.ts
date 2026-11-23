@@ -18,6 +18,7 @@ import type {
   ShiftObservation,
   SourceSelector,
   InstanceSelector,
+  FontCheck,
 } from "@shift/runtime";
 import type { GlyphId, NamedInstance, Source } from "@shift/types";
 import type { MessagePortMain } from "electron";
@@ -89,6 +90,10 @@ export class AgentClient {
 
   getFont(ifFontRevision?: FontRevision): Promise<ShiftObservation<FontOverview>> {
     return this.#call("font.get", { ifFontRevision });
+  }
+
+  checkFont(input: AgentCallMap["font.check"]["request"]): Promise<ShiftObservation<FontCheck>> {
+    return this.#call("font.check", input);
   }
 
   resolveLocation(

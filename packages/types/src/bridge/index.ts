@@ -75,6 +75,7 @@ export type {
   DistributePoints,
   DocumentIdentity,
   DocumentState,
+  FontFinding,
   FontIntent,
   FontMetadata,
   FontMetrics,
