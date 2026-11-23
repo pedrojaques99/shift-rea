@@ -18,6 +18,10 @@ const shiftHost: ShiftHost = {
     stop: invoke(ipcRenderer, "agentChat.stop"),
     onEvent: listen(ipcRenderer, "agentChat.event"),
   },
+  agentKeys: {
+    state: invoke(ipcRenderer, "agentKeys.state"),
+    set: invoke(ipcRenderer, "agentKeys.set"),
+  },
   agentConnections: {
     state: invoke(ipcRenderer, "agentConnections.state"),
     setAllowed: invoke(ipcRenderer, "agentConnections.setAllowed"),

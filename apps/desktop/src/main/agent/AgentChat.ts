@@ -3,14 +3,9 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import type {
-  ChatEvent,
-  ChatProvider,
-  ChatProviderId,
-  ChatRun,
-  ChatSendRequest,
-} from "@shared/agent/chat";
-import { CHAT_ADAPTERS, type ChatInvocation } from "./chatProviders";
+import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "@shared/agent/chat";
+import type { ApiChat } from "./ApiChat";
+import { CHAT_ADAPTERS, type ChatInvocation, type CommandProviderId } from "./chatProviders";
 
 /** Where the chat's agent finds this build's MCP server, and what it should know. */
 export interface ChatTarget {
@@ -34,15 +29,23 @@ export class AgentChat {
   // non-reactive: process handles, owned by main and never rendered.
   readonly #runs = new Map<string, ChildProcess>();
   readonly #workDir: string;
+  readonly #api: ApiChat | null;
 
-  /** @param workDir - The agents' working directory; it holds their per-run config files. */
-  constructor(workDir: string = path.join(os.tmpdir(), "shift-agent-chat")) {
+  /**
+   * @param workDir - The agents' working directory; it holds their per-run config files.
+   * @param api - Models reached with the user's own API keys, offered as "Your API key".
+   */
+  constructor(
+    workDir: string = path.join(os.tmpdir(), "shift-agent-chat"),
+    api: ApiChat | null = null,
+  ) {
     this.#workDir = workDir;
+    this.#api = api;
   }
 
   /** The providers found on this computer, and the models each lets the user pick. */
-  providers(): ChatProvider[] {
-    return (Object.keys(CHAT_ADAPTERS) as ChatProviderId[]).map((id) => {
+  async providers(): Promise<ChatProvider[]> {
+    const commands = (Object.keys(CHAT_ADAPTERS) as CommandProviderId[]).map((id) => {
       const command = commandFor(id);
       return {
         id,
@@ -51,6 +54,11 @@ export class AgentChat {
         models: command ? listModels(id, command) : [],
       };
     });
+    if (!this.#api) return commands;
+
+    const available = this.#api.available();
+    const models = available ? await this.#api.models() : [];
+    return [...commands, { id: "api", name: "Your API key", installed: available, models }];
   }
 
   /**
@@ -60,6 +68,8 @@ export class AgentChat {
    * @throws {Error} when the provider's command is not installed.
    */
   send(request: ChatSendRequest, target: ChatTarget, onEvent: (event: ChatEvent) => void): ChatRun {
+    if (request.provider === "api") return this.#sendApi(request, target, onEvent);
+
     const adapter = CHAT_ADAPTERS[request.provider];
     const command = commandFor(request.provider);
     if (!command) throw new Error(`${adapter.name} is not installed on this computer`);
@@ -121,8 +131,31 @@ export class AgentChat {
     return { runId };
   }
 
+  #sendApi(
+    request: ChatSendRequest,
+    target: ChatTarget,
+    onEvent: (event: ChatEvent) => void,
+  ): ChatRun {
+    if (!this.#api?.available()) throw new Error("Add an API key in Settings → Agents first");
+    if (!request.model) throw new Error("Pick a model for your API key");
+
+    const runId = this.#api.send(
+      {
+        model: request.model,
+        prompt: request.prompt,
+        sessionId: request.sessionId,
+        serverName: target.serverName,
+        url: target.url,
+        context: chatContext(target),
+      },
+      onEvent,
+    );
+    return { runId };
+  }
+
   /** Stops a run; nothing happens when it already ended. */
   stop(runId: string): void {
+    this.#api?.stop(runId);
     const child = this.#runs.get(runId);
     if (!child?.pid) return;
 
@@ -136,13 +169,14 @@ export class AgentChat {
 
   /** Stops every run, as the app quits. */
   stopAll(): void {
+    this.#api?.stopAll();
     for (const runId of this.#runs.keys()) this.stop(runId);
   }
 }
 
 /** Models a provider's CLI lists, for those that let the user pick one; cached per provider. */
-const modelCache = new Map<ChatProviderId, string[]>();
-function listModels(provider: ChatProviderId, command: string[]): string[] {
+const modelCache = new Map<CommandProviderId, string[]>();
+function listModels(provider: CommandProviderId, command: string[]): string[] {
   if (provider !== "opencode") return [];
 
   const cached = modelCache.get(provider);
@@ -175,7 +209,7 @@ function chatContext({ windowId, serverName }: ChatTarget): string {
 }
 
 /** The executable and leading arguments that run `provider`, or null when it is missing. */
-function commandFor(provider: ChatProviderId): string[] | null {
+function commandFor(provider: CommandProviderId): string[] | null {
   const override = process.env[`SHIFT_CHAT_CMD_${provider.toUpperCase()}`];
   if (override) return JSON.parse(override) as string[];
 

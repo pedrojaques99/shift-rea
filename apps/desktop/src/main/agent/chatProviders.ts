@@ -174,8 +174,11 @@ ${text}`,
   read: readOpenCodeLine,
 };
 
-/** Every provider the chat can run, by id, in the order the chat lists them. */
-export const CHAT_ADAPTERS: Readonly<Record<ChatProviderId, ChatAdapter>> = {
+/** The providers that run a command-line agent: all but the user's own API key. */
+export type CommandProviderId = Exclude<ChatProviderId, "api">;
+
+/** Every command-line provider the chat can run, by id, in the order the chat lists them. */
+export const CHAT_ADAPTERS: Readonly<Record<CommandProviderId, ChatAdapter>> = {
   claude,
   codex,
   agy,
@@ -364,7 +367,7 @@ function toolName(name: string): string {
 }
 
 /** A short line of what a tool call did: the label of an edit, or the start of its code. */
-function toolSummary(input: unknown): string {
+export function toolSummary(input: unknown): string {
   if (!isObject(input)) return "";
 
   const code = typeof input.code === "string" ? input.code : null;

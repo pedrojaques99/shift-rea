@@ -3,7 +3,14 @@ import type { FontSessionMode, WorkspaceDocumentState } from "../workspace/lanes
 import type { UpdateNotice } from "../update/types";
 import type { RecentDocument } from "../recents";
 import type { AgentConnectionsState } from "../agent/connections";
-import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "../agent/chat";
+import type {
+  ApiKeysState,
+  ApiVendor,
+  ChatEvent,
+  ChatProvider,
+  ChatRun,
+  ChatSendRequest,
+} from "../agent/chat";
 import type { AgentConnection } from "../agent/protocol";
 import type { AppConfigState, ThemeSetting } from "../config/config";
 import type { DebugOverlays } from "../debug";
@@ -50,6 +57,10 @@ export type RendererToMain = {
   "agentChat.send": (request: ChatSendRequest) => ChatRun;
   /** Stops a chat run this window started. */
   "agentChat.stop": (runId: string) => void;
+  /** Which vendors have one of the user's own API keys stored. */
+  "agentKeys.state": () => ApiKeysState;
+  /** Stores a vendor's API key, encrypted by the system keychain, or removes it when null. */
+  "agentKeys.set": (vendor: ApiVendor, key: string | null) => ApiKeysState;
   "agentConnections.state": () => AgentConnectionsState;
   /** Persists whether local agents may connect and starts or stops the MCP server. */
   "agentConnections.setAllowed": (allowed: boolean) => AgentConnectionsState;

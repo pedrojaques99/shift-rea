@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
-import { Button, Check, Copy, Switch, Tooltip } from "@shift/ui";
-import type { ChatProvider } from "@shared/agent/chat";
+import { Button, Check, Copy, Input, Switch, Tooltip } from "@shift/ui";
+import {
+  API_VENDORS,
+  type ApiKeysState,
+  type ApiVendor,
+  type ChatProvider,
+} from "@shared/agent/chat";
 import type { AgentConnectionsState } from "@shared/agent/connections";
 import { getShiftHost } from "@/host/shiftHost";
 import { useAgentConnections } from "@/hooks/useAgentConnections";
@@ -45,6 +50,8 @@ export const AgentsSettingsPanel = () => {
       </div>
 
       <DetectedAgents />
+
+      <ApiKeys />
 
       <ConnectionSteps state={state} />
     </section>
@@ -93,6 +100,107 @@ const DetectedAgents = () => {
         ))}
       </ul>
     </div>
+  );
+};
+
+const VENDOR_NAMES: Record<ApiVendor, string> = {
+  anthropic: "Anthropic",
+  openai: "OpenAI",
+  google: "Google",
+  openrouter: "OpenRouter",
+};
+
+/** The user's own API keys: the Agent panel offers "Your API key" once one is set. */
+const ApiKeys = () => {
+  const [state, setState] = useState<ApiKeysState | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    const load = async () => {
+      const next = await getShiftHost().agentKeys.state();
+      if (live) setState(next);
+    };
+    void load();
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  if (!state) return null;
+
+  return (
+    <div className="flex flex-col gap-2" aria-label="Your own API keys">
+      <h3 className="text-sm text-primary">Your own API keys</h3>
+      <p className="text-ui text-secondary">
+        No subscription? Use a key instead. Keys are encrypted with this computer's keychain and
+        only go to their own vendor.
+      </p>
+      <ul className="flex flex-col gap-2">
+        {API_VENDORS.map((vendor) => (
+          <ApiKeyRow key={vendor} vendor={vendor} saved={state[vendor]} onChange={setState} />
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+const ApiKeyRow = ({
+  vendor,
+  saved,
+  onChange,
+}: {
+  vendor: ApiVendor;
+  saved: boolean;
+  onChange: (state: ApiKeysState) => void;
+}) => {
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const name = VENDOR_NAMES[vendor];
+
+  const save = async (key: string | null) => {
+    setError(null);
+    try {
+      onChange(await getShiftHost().agentKeys.set(vendor, key));
+      setDraft("");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : String(failure));
+    }
+  };
+
+  return (
+    <li className="flex flex-col gap-1">
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void save(draft);
+        }}
+      >
+        <span className="w-24 shrink-0 text-ui text-primary">{name}</span>
+        <Input
+          type="password"
+          autoComplete="off"
+          aria-label={`${name} API key`}
+          placeholder={saved ? "Saved · type to replace" : "Paste a key"}
+          value={draft}
+          className="min-w-0 flex-1"
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <Button type="submit" variant="outline" size="sm" aria-disabled={!draft.trim()}>
+          Save
+        </Button>
+        {saved ? (
+          <Button type="button" variant="ghost" size="sm" onClick={() => void save(null)}>
+            Remove
+          </Button>
+        ) : null}
+      </form>
+      {error ? (
+        <p role="alert" className="text-ui text-error">
+          {error}
+        </p>
+      ) : null}
+    </li>
   );
 };
 

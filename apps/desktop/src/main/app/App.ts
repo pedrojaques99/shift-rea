@@ -53,6 +53,8 @@ import type { CommandId } from "../../shared/commands";
 import { RecentDocuments } from "../recents/RecentDocuments";
 import { SandboxRuntimeProcess } from "../sandbox/SandboxRuntimeProcess";
 import { AgentChat } from "../agent/AgentChat";
+import { AgentKeys } from "../agent/AgentKeys";
+import { ApiChat } from "../agent/ApiChat";
 import { AgentConnections } from "../agent/AgentConnections";
 import { AgentCommands } from "../agent/AgentCommands";
 import { publishE2EHooks } from "../agent/e2eHooks";
@@ -110,7 +112,12 @@ export class App {
   });
   #agentConnections: AgentConnections | null = null;
   /** The in-app agent chat; its agents work in a folder of their own beside this build's data. */
-  readonly #agentChat = new AgentChat(path.join(app.getPath("userData"), "agent-chat"));
+  readonly #agentKeys = new AgentKeys(app.getPath("userData"));
+  readonly #apiChat = new ApiChat(this.#agentKeys);
+  readonly #agentChat = new AgentChat(
+    path.join(app.getPath("userData"), "agent-chat"),
+    this.#apiChat,
+  );
   #config: AppConfig | null = null;
   #commandLineTool: CommandLineTool | null = null;
   #sandbox: SandboxRuntimeProcess | null = null;
@@ -603,6 +610,12 @@ export class App {
       return run;
     });
     ipc.handle(ipcMain, "agentChat.stop", (_event, runId) => this.#agentChat.stop(runId));
+    ipc.handle(ipcMain, "agentKeys.state", () => this.#agentKeys.state());
+    ipc.handle(ipcMain, "agentKeys.set", (_event, vendor, key) => {
+      const state = this.#agentKeys.set(vendor, key);
+      this.#apiChat.forgetModels();
+      return state;
+    });
     ipc.handle(ipcMain, "agentConnections.state", () => this.#requireAgentConnections().state);
     ipc.handle(ipcMain, "agentConnections.setAllowed", async (_event, allowed) => {
       const connections = this.#requireAgentConnections();

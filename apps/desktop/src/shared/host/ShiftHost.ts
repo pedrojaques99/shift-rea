@@ -1,4 +1,11 @@
-import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "../agent/chat";
+import type {
+  ApiKeysState,
+  ApiVendor,
+  ChatEvent,
+  ChatProvider,
+  ChatRun,
+  ChatSendRequest,
+} from "../agent/chat";
 import type { CommandId, RendererCommandId } from "../commands";
 import type { UpdateNotice } from "../update/types";
 import type { RendererErrorReport } from "../ipc/contract";
@@ -166,6 +173,11 @@ export interface ShiftHost {
      * @returns an unsubscribe function.
      */
     onEvent: (callback: (message: { runId: string; event: ChatEvent }) => void) => () => void;
+  };
+  /** The user's own API keys for the agent chat; only whether each vendor has one is visible here. */
+  agentKeys: {
+    state: () => Promise<ApiKeysState>;
+    set: (vendor: ApiVendor, key: string | null) => Promise<ApiKeysState>;
   };
   /** Whether local agents may connect over MCP, and what they are doing. */
   agentConnections: {

@@ -5,7 +5,16 @@
  */
 
 /** A command-line agent the chat can run. */
-export type ChatProviderId = "claude" | "codex" | "agy" | "opencode";
+export type ChatProviderId = "claude" | "codex" | "agy" | "opencode" | "api";
+
+/** A model vendor the chat can call with the user's own API key. */
+export type ApiVendor = (typeof API_VENDORS)[number];
+
+/** Every vendor that takes the user's own key, in the order Settings lists them. */
+export const API_VENDORS = ["anthropic", "openai", "google", "openrouter"] as const;
+
+/** Which vendors have a key stored; the keys themselves never leave main. */
+export type ApiKeysState = Record<ApiVendor, boolean>;
 
 /** A provider as the chat lists it. */
 export interface ChatProvider {
