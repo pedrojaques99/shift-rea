@@ -8,7 +8,12 @@ import {
   type GlyphId,
   type NodeId,
 } from "@shift/types";
-import { useEditor } from "@/workspace/WorkspaceContext";
+import { useLocation } from "react-router";
+import { tagTargetsOf } from "@/lib/glyph-grid/tagTargets";
+import { useEditor, useFontSession } from "@/workspace/WorkspaceContext";
+
+/** The glyph grid's route. */
+const GRID_PATH = "/home";
 
 /** What the user has open, for the agent: `label` shows in the chat, `focus` reaches the agent. */
 export interface AgentFocus {
@@ -32,11 +37,31 @@ const KINDS = [
  */
 export function useAgentFocus(): AgentFocus | null {
   const editor = useEditor();
+  const session = useFontSession();
+  const { pathname } = useLocation();
   const selection = useSignalState(editor.selection.stateCell);
   const editing = useSignalState(editor.editing.stateCell);
+  const gridSelection = useSignalState(session.tabs.gridSelectionCell);
   useSignalState(editor.activeSourceIdCell);
 
+  // On the glyph grid the grid's selection is what "these" means, not the last edited glyph.
+  if (pathname === GRID_PATH)
+    return gridFocus(editor, tagTargetsOf(pathname, gridSelection.ids, null));
+
   return agentFocus(editor, editing.nodeIds, selection.ids);
+}
+
+/** The glyphs selected in the grid, named; null with none, so the agent works on the font. */
+function gridFocus(editor: Editor, glyphIds: readonly GlyphId[]): AgentFocus | null {
+  if (glyphIds.length === 0) return null;
+
+  const names = glyphIds.map((id) => editor.font.glyphName(id) ?? id);
+  const count = `${names.length} ${names.length === 1 ? "glyph" : "glyphs"}`;
+  const shown = names.slice(0, 4).join(", ");
+  const label = names.length > 4 ? `${count}: ${shown}…` : `${count}: ${shown}`;
+  const listed = names.slice(0, MAX_IDS).join(", ");
+  const more = names.length > MAX_IDS ? `, and ${names.length - MAX_IDS} more` : "";
+  return { label, focus: `the glyph grid; selected glyphs: ${listed}${more}` };
 }
 
 function agentFocus(
