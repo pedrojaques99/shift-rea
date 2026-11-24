@@ -136,7 +136,7 @@ describe("the cursor offers adding to the selection", () => {
     editor.movePointerTo({ x: 200, y: 200 });
     await editor.pressKey("Alt", { altKey: true });
 
-    expect(editor.toolCursor()).toBe("default");
+    expect(editor.toolCursor()).toBe("point");
   });
 
   it("not while nothing is selected", () => {
@@ -176,13 +176,13 @@ describe("the cursor offers adding to the selection", () => {
     }
   });
 
-  it("keeps the move cursor during a Shift drag of a point", async () => {
+  it("keeps the point-drag cursor during a Shift drag of a point", async () => {
     editor.select([first]);
 
     editor.pressAt({ x: 100, y: 100 }, { shiftKey: true });
     editor.movePointerTo({ x: 140, y: 140 }, { shiftKey: true });
 
-    expect(editor.toolCursor()).toBe("move");
+    expect(editor.toolCursor()).toBe("point-move");
     await editor.pressKey("Escape");
   });
 

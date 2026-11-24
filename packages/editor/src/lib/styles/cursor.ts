@@ -16,6 +16,22 @@ export function cursorToCSS(cursor: CursorType): string {
       return `-webkit-image-set(url("../cursors/cursor@32-vertical.svg") 1x, url("../cursors/cursor@64-vertical.svg") 2x) 5 0, ew-resize`;
     case "end":
       return `-webkit-image-set(url("../cursors/cursor@32-end.svg") 1x, url("../cursors/cursor@64-end.svg") 2x) 5 0, default`;
+    case "point":
+      return `-webkit-image-set(url("../cursors/cursor@32-point.svg") 1x, url("../cursors/cursor@64-point.svg") 2x) 5 0, default`;
+    case "point-move":
+      return `-webkit-image-set(url("../cursors/cursor@32-point-move.svg") 1x, url("../cursors/cursor@64-point-move.svg") 2x) 5 0, default`;
+    case "handle":
+      return `-webkit-image-set(url("../cursors/cursor@32-handle.svg") 1x, url("../cursors/cursor@64-handle.svg") 2x) 5 0, default`;
+    case "handle-move":
+      return `-webkit-image-set(url("../cursors/cursor@32-handle-move.svg") 1x, url("../cursors/cursor@64-handle-move.svg") 2x) 5 0, default`;
+    case "anchor":
+      return `-webkit-image-set(url("../cursors/cursor@32-anchor.svg") 1x, url("../cursors/cursor@64-anchor.svg") 2x) 5 0, default`;
+    case "anchor-move":
+      return `-webkit-image-set(url("../cursors/cursor@32-anchor-move.svg") 1x, url("../cursors/cursor@64-anchor-move.svg") 2x) 5 0, default`;
+    case "segment":
+      return `-webkit-image-set(url("../cursors/cursor@32-segment.svg") 1x, url("../cursors/cursor@64-segment.svg") 2x) 5 0, default`;
+    case "component":
+      return `-webkit-image-set(url("../cursors/cursor@32-component.svg") 1x, url("../cursors/cursor@64-component.svg") 2x) 5 0, default`;
     case "crosshair":
       return `-webkit-image-set(url("../cursors/crosshair@32.svg") 1x, url("../cursors/crosshair@64.svg") 2x) 12 9, crosshair`;
     case "crosshair-circle":
@@ -28,6 +44,8 @@ export function cursorToCSS(cursor: CursorType): string {
       return `-webkit-image-set(url("../cursors/pen@32-add.svg") 1x, url("../cursors/pen@64-add.svg") 2x) 6 3, crosshair`;
     case "pen-end":
       return `-webkit-image-set(url("../cursors/pen@32-end.svg") 1x, url("../cursors/pen@64-end.svg") 2x) 6 3, crosshair`;
+    case "pen-close":
+      return `-webkit-image-set(url("../cursors/pen@32-close.svg") 1x, url("../cursors/pen@64-close.svg") 2x) 6 3, crosshair`;
     case "ew-resize":
       return `-webkit-image-set(url("../cursors/resize@32-ew.svg") 1x, url("../cursors/resize@64-ew.svg") 2x) 16 16, ew-resize`;
     case "ns-resize":

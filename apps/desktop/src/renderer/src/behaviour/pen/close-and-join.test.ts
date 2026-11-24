@@ -83,6 +83,16 @@ describe("closing a contour by dragging off its first point", () => {
       },
     ]);
   });
+
+  it("shows the close cursor over the stroke's first point, not over its last", async () => {
+    await drawStroke();
+
+    editor.movePointerTo({ x: 100, y: 100 });
+    expect(editor.shownCursor()).toBe(cursorToCSS({ type: "pen-close" }));
+
+    editor.movePointerTo({ x: 300, y: 300 });
+    expect(editor.shownCursor()).toBe(cursorToCSS({ type: "pen" }));
+  });
 });
 
 describe("joining another open contour", () => {

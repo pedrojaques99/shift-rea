@@ -1,5 +1,5 @@
 import { BaseTool, type ToolName } from "../core";
-import { edgeToCursor, type BoundingRectEdge } from "./cursor";
+import { dragCursor, edgeToCursor, hoverCursor, type BoundingRectEdge } from "./cursor";
 import type { SelectState, SelectBehavior } from "./types";
 import {
   Selection,
@@ -88,7 +88,8 @@ export class Select extends BaseTool<SelectState, Select> {
   override getCursor(state: SelectState): CursorType {
     switch (state.type) {
       case "translating":
-        return this.#dropsOnOpenEnd() ? { type: "end" } : { type: "move" };
+        if (this.#dropsOnOpenEnd()) return { type: "end" };
+        return this.#draggedCursor(this.editor.selection.stateCell.value.ids) ?? { type: "move" };
       case "resizing":
         return edgeToCursor(state.resize.edge, state.resize.flipX, state.resize.flipY);
       case "rotating":
@@ -128,9 +129,30 @@ export class Select extends BaseTool<SelectState, Select> {
       if (cursor) return cursor;
     }
 
+    // Inside the selection's box a drag moves the whole selection, whatever lies under the pointer.
     if (coords && this.boundingBox.containsTranslationPoint(coords)) return { type: "move" };
 
+    const hovered = state.type === "ready" && hover ? this.#editableObject(hover) : null;
+    const hoverBadge = hovered ? hoverCursor(hovered) : null;
+    if (hoverBadge) return hoverBadge;
+
     return { type: "default" };
+  }
+
+  /** The badge for a drag that moves exactly one point or anchor; null when a group moves. */
+  #draggedCursor(ids: readonly SelectableId[]): CursorType | null {
+    const only = ids.length === 1 ? ids[0] : undefined;
+    const object = only ? this.#editableObject(only) : null;
+    return object ? dragCursor(object) : null;
+  }
+
+  /** The object behind an id when its layer is the one being edited; display-only objects get no badge. */
+  #editableObject(id: SelectableId): ShiftObject | null {
+    const object = this.editor.object(id);
+    const layer = object && "layer" in object ? object.layer : null;
+    if (!object || !layer || !this.editor.isEditingLayer(layer)) return null;
+
+    return object;
   }
 
   protected override isEditing(state: SelectState): boolean {

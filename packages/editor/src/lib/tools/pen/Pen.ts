@@ -227,6 +227,9 @@ export class Pen extends BaseTool<PenState, Pen> {
     switch (target.type) {
       case "terminal":
         if (target.pointId === activeEndpoint?.pointId) return { type: "pen" };
+        if (activeEndpoint && target.pointId === stroke.activeContour?.firstPoint?.id) {
+          return { type: "pen-close" };
+        }
         return { type: "pen-end" };
       case "segment":
         if (!activeEndpoint) return { type: "pen-add" };

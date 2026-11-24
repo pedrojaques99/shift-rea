@@ -13,12 +13,21 @@ export type CursorType =
   | { type: "bend" }
   | { type: "spacing" }
   | { type: "end" }
+  | { type: "point" }
+  | { type: "point-move" }
+  | { type: "handle" }
+  | { type: "handle-move" }
+  | { type: "anchor" }
+  | { type: "anchor-move" }
+  | { type: "segment" }
+  | { type: "component" }
   | { type: "crosshair" }
   | { type: "crosshair-circle" }
   | { type: "crosshair-square" }
   | { type: "pen" }
   | { type: "pen-add" }
   | { type: "pen-end" }
+  | { type: "pen-close" }
   | { type: "not-allowed" }
   | { type: "ew-resize" }
   | { type: "ns-resize" }

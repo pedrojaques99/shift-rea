@@ -85,7 +85,7 @@ describe("dropping an open end onto another open end joins them", () => {
 
     editor.pressAt({ x: 300, y: 300 });
     editor.movePointerTo({ x: 280, y: 280 });
-    expect(editor.toolCursor()).toBe("move");
+    expect(editor.toolCursor()).toBe("point-move");
 
     editor.movePointerTo({ x: 101, y: 101 });
     expect(editor.toolCursor()).toBe("end");

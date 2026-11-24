@@ -117,7 +117,7 @@ describe("Cmd-clicking a line turns it into a curve", () => {
     expect(await editor.outline()).toEqual(before);
 
     editor.movePointerTo({ x: 145, y: 215 });
-    expect(editor.toolCursor()).toBe("default");
+    expect(editor.toolCursor()).toBe("segment");
   });
 
   it("keeps the bend cursor when Cmd is pressed before a queued hover's frame", async () => {
@@ -141,7 +141,7 @@ describe("Cmd-clicking a line turns it into a curve", () => {
     await editor.releaseKey("Meta");
     editor.passFrame();
 
-    expect(editor.toolCursor()).toBe("default");
+    expect(editor.toolCursor()).toBe("segment");
   });
 
   it("offers moving over a line inside the selection, and bending with Cmd", async () => {
@@ -172,18 +172,18 @@ describe("dragging a curve bends it", () => {
     ({ one, two } = await editor.draw(FLAT_CURVE));
   });
 
-  it("keeps the normal cursor over a curve with Cmd or Alt held", async () => {
+  it("keeps the segment cursor, not bend, over a curve with Cmd or Alt held", async () => {
     editor.movePointerTo(middle);
-    expect(editor.toolCursor()).toBe("default");
+    expect(editor.toolCursor()).toBe("segment");
     await editor.pressKey("Meta");
-    expect(editor.toolCursor()).toBe("default");
+    expect(editor.toolCursor()).toBe("segment");
     await editor.pressKey("Alt", { altKey: true });
-    expect(editor.toolCursor()).toBe("default");
+    expect(editor.toolCursor()).toBe("segment");
   });
 
   it("does not offer bending over a point or empty canvas", () => {
     editor.movePointerTo({ x: 100, y: 200 });
-    expect(editor.toolCursor()).toBe("default");
+    expect(editor.toolCursor()).toBe("point");
     editor.movePointerTo({ x: 400, y: 500 });
     expect(editor.toolCursor()).toBe("default");
   });
