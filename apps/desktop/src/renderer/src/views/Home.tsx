@@ -1,5 +1,6 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@shift/ui";
 import { GlyphGrid } from "@/components/home/GlyphGrid";
+import { TestStrip } from "@/components/glyph-grid/TestStrip";
 import { LeftSidebar } from "@/components/home/LeftSidebar";
 import { AgentChatPanel } from "@/components/agent-chat/AgentChatPanel";
 import { RightSidebar } from "@/components/editor/RightSidebar";
@@ -57,8 +58,11 @@ export const Home = () => {
           onDoubleClick={resetLeftSidebar}
         />
         <ResizablePanel id="grid" minSize={300}>
-          <div className="relative h-full">
-            <GlyphGrid askAgent={agentOpen ? undefined : toggleAgent} />
+          <div className="relative flex h-full flex-col">
+            <TestStrip />
+            <div className="relative min-h-0 flex-1">
+              <GlyphGrid askAgent={agentOpen ? undefined : toggleAgent} />
+            </div>
             <UpdateStrip className="right-3 bottom-3" />
           </div>
         </ResizablePanel>
