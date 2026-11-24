@@ -46,6 +46,7 @@
     "@types/d3-drag": "^3.0.7",
     "@types/d3-scale": "^4.0.9",
     "@types/d3-selection": "^3.0.12",
+    "@types/jsdom": "21.1.7",
     "@types/node": "^25.3.0",
     "@vitejs/plugin-react": "^4.6.0",
     "@webgpu/types": "^0.1.69",
