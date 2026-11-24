@@ -48,6 +48,9 @@ export const RightSidebar = () => {
   const { pathname } = useLocation();
   const gridSelection = useSignalState(session.tabs.gridSelectionCell);
   const severalGlyphs = tagTargetsOf(pathname, gridSelection.ids, null).length > 1;
+  // On the grid the page's name means nothing: the header names the view instead.
+  const onGrid = pathname === "/home";
+  const sidebarTitle = severalGlyphs ? "Mixed" : gridTitle(onGrid);
   const hasAnchorSelection = selection.ids.some(isAnchorId);
   const hasBooleanSelection = !textActive && selection.ids.filter(isContourId).length >= 2;
 
@@ -55,7 +58,7 @@ export const RightSidebar = () => {
     <GlyphSidebar
       session={session}
       host={{
-        title: severalGlyphs ? "Mixed" : undefined,
+        title: sidebarTitle,
         headerActions: (
           <div className="flex shrink-0 items-center gap-1">
             {readOnlyFont ? (
@@ -134,3 +137,8 @@ export const RightSidebar = () => {
     />
   );
 };
+
+/** The header on the glyph grid, where the shown page does not apply; else the page decides. */
+function gridTitle(onGrid: boolean): string | undefined {
+  return onGrid ? "Glyphs" : undefined;
+}
