@@ -34,6 +34,11 @@ export const Toolbar = ({
       documentEdited: dirty && !isMac,
       navigation: <NavigationPane />,
       windowControls: <Titlebar edited={dirty} />,
+      // A previewed file (a .ttf opened read-only) has no document to rename.
+      onRenameDocument:
+        session.mode === "workspace"
+          ? (name) => getShiftHost().documentFile.rename(name)
+          : undefined,
       menuBar: isMac ? undefined : (
         <>
           <WindowMenuBar collapsible />
@@ -41,7 +46,7 @@ export const Toolbar = ({
         </>
       ),
     }),
-    [dirty, filename, isMac],
+    [dirty, filename, isMac, session.mode],
   );
 
   return (

@@ -616,6 +616,21 @@ export class App {
     ipc.handle(ipcMain, "agentChat.reset", (_event, conversation) =>
       this.#agentChat.reset(conversation),
     );
+    ipc.handle(ipcMain, "document.rename", async (event, name) => {
+      const window = this.#requireWindowForWebContents(event.sender);
+      const document = this.#workspaces.getForBrowserWindow(window.window)?.document ?? null;
+      if (!document) return;
+
+      const previous = await document.rename(name);
+      if (!previous) return;
+
+      try {
+        await shell.trashItem(previous);
+      } catch (error) {
+        // The renamed copy is saved; the old file only stays where it was.
+        this.#log.warn("could not move the old document file to the trash", { previous, error });
+      }
+    });
     ipc.handle(ipcMain, "agentChat.attach", (_event, name, data) =>
       this.#agentChat.attach(name, data),
     );

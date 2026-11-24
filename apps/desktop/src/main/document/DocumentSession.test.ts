@@ -1,3 +1,6 @@
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import type { WorkspaceDocumentState } from "../../shared/workspace/lanes";
 import { answeringNativeDialogs } from "../dialogs/answeringNativeDialogs";
@@ -189,5 +192,63 @@ describe("DocumentSession shared close transition", () => {
     await expect(session.commitClose()).resolves.toBeUndefined();
 
     expect(dialogCount).toBe(3);
+  });
+});
+
+describe("DocumentSession rename", () => {
+  function renaming(saveTarget: string, needsSaveAs = false) {
+    const saved: (string | null)[] = [];
+    const state = { ...documentState(false), saveTarget, canonicalPath: saveTarget, needsSaveAs };
+    const document: Document = {
+      connected: true,
+      state: async () => state,
+      save: async (savePath) => {
+        saved.push(savePath);
+        return { ...state, saveTarget: savePath ?? saveTarget };
+      },
+    };
+    const suggested: (string | null)[] = [];
+    const nativeDialogs = answeringNativeDialogs(async () => "cancel");
+    nativeDialogs.saveShiftDocument = async (_window, suggestedPath) => {
+      suggested.push(suggestedPath);
+      return null;
+    };
+    const session = new DocumentSession({
+      document,
+      closeDocument: async () => {},
+      dialogWindow: () => null,
+      windows: () => [],
+      applicationName: () => "Shift",
+      nativeDialogs,
+      log: silentLogger,
+    });
+    return { session, saved, suggested };
+  }
+
+  it("saves the document under the new name in its folder and hands back the old file", async () => {
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), "shift-rename-"));
+    const { session, saved } = renaming(path.join(folder, "Untitled.shift"));
+
+    await expect(session.rename("  Manrope: Neo  ")).resolves.toBe(
+      path.join(folder, "Untitled.shift"),
+    );
+    expect(saved).toEqual([path.join(folder, "Manrope Neo.shift")]);
+  });
+
+  it("refuses a name another file in the folder already has", async () => {
+    const folder = fs.mkdtempSync(path.join(os.tmpdir(), "shift-rename-"));
+    fs.writeFileSync(path.join(folder, "Taken.shift"), "");
+    const { session, saved } = renaming(path.join(folder, "Untitled.shift"));
+
+    await expect(session.rename("Taken")).rejects.toThrow("already exists");
+    expect(saved).toEqual([]);
+  });
+
+  it("asks where to save an untitled font, with the name filled in", async () => {
+    const { session, saved, suggested } = renaming("/tmp/untitled.shift", true);
+
+    await expect(session.rename("Manrope Neo")).resolves.toBeNull();
+    expect(suggested).toEqual(["Manrope Neo.shift"]);
+    expect(saved).toEqual([]);
   });
 });

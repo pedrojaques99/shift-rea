@@ -21,6 +21,9 @@ const shiftHost: ShiftHost = {
     reset: invoke(ipcRenderer, "agentChat.reset"),
     onEvent: listen(ipcRenderer, "agentChat.event"),
   },
+  documentFile: {
+    rename: invoke(ipcRenderer, "document.rename"),
+  },
   agentKeys: {
     state: invoke(ipcRenderer, "agentKeys.state"),
     set: invoke(ipcRenderer, "agentKeys.set"),

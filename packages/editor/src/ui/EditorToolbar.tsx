@@ -1,4 +1,4 @@
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@shift/ui";
+import { Button, Tooltip, TooltipContent, TooltipTrigger, useInlineRename } from "@shift/ui";
 import { useState, type ReactNode } from "react";
 import { useSignalState } from "../lib/signals";
 import { ShiftIcon } from "./ShiftIcon";
@@ -16,6 +16,8 @@ export interface EditorToolbarHost {
   windowControls?: ReactNode;
   /** Application menus drawn at the start of the row, for platforms without a system menu bar. */
   menuBar?: ReactNode;
+  /** Renames the document's file; without it the file name can't be edited from the title. */
+  onRenameDocument?: (name: string) => Promise<void>;
 }
 
 export interface EditorToolbarProps {
@@ -88,9 +90,22 @@ export function EditorToolbar({
             className="absolute left-1 top-1/2 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-muted"
           />
         ) : null}
-        <span className="truncate">
-          <span className="font-medium">{familyName}</span>
-          <span className="text-muted"> — {documentTitle}</span>
+        <span className="flex min-w-0 items-center truncate">
+          <TitleName
+            name={familyName}
+            label="Family name"
+            className="font-medium"
+            onRename={async (next) => {
+              await font.updateMetadata({ ...metadata, familyName: next });
+            }}
+          />
+          <span className="text-muted">&nbsp;—&nbsp;</span>
+          <TitleName
+            name={documentTitle}
+            label="File name"
+            className="text-muted"
+            onRename={host ? host.onRenameDocument : undefined}
+          />
         </span>
       </p>
       <div className="flex items-center justify-end gap-1 pr-2">
@@ -217,4 +232,75 @@ function AgentToggle({ open, onToggle }: { open: boolean | undefined; onToggle: 
 function sidebarToggleLabel(side: "left" | "right", open: boolean | undefined): string {
   if (open === undefined) return `Toggle ${side} sidebar`;
   return `${open ? "Hide" : "Show"} ${side} sidebar`;
+}
+
+/**
+ * A name in the title bar that a double-click edits in place, as Figma's file
+ * name does. Enter or leaving the field renames; Escape keeps the name.
+ */
+function TitleName({
+  name,
+  label,
+  className,
+  onRename,
+}: {
+  name: string;
+  label: string;
+  className: string;
+  onRename?: (name: string) => Promise<void>;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (!onRename) return <span className={className}>{name}</span>;
+
+  if (editing) {
+    return (
+      <TitleNameField
+        name={name}
+        label={label}
+        onDone={async (next) => {
+          setEditing(false);
+          const trimmed = next?.trim();
+          if (!trimmed || trimmed === name) return;
+
+          try {
+            await onRename(trimmed);
+          } catch (error) {
+            console.warn(`Could not rename: ${String(error)}`);
+          }
+        }}
+      />
+    );
+  }
+
+  return (
+    <span
+      className={`titlebar cursor-text truncate rounded-[3px] px-1 hover:bg-hover ${className}`}
+      title={`Double-click to rename`}
+      onDoubleClick={() => setEditing(true)}
+    >
+      {name}
+    </span>
+  );
+}
+
+function TitleNameField({
+  name,
+  label,
+  onDone,
+}: {
+  name: string;
+  label: string;
+  onDone: (name: string | null) => void;
+}) {
+  const field = useInlineRename(name, onDone);
+
+  return (
+    <input
+      aria-label={label}
+      size={Math.max(name.length, 4) + 2}
+      className="titlebar h-6 rounded-[3px] bg-input px-1 text-ui text-primary outline-none ring-1 ring-accent"
+      {...field}
+    />
+  );
 }

@@ -181,6 +181,11 @@ export interface ShiftHost {
      */
     onEvent: (callback: (message: { runId: string; event: ChatEvent }) => void) => () => void;
   };
+  /** The window's document file. */
+  documentFile: {
+    /** Renames the file in its folder (Save As for an untitled font); the old file goes to the trash. */
+    rename: (name: string) => Promise<void>;
+  };
   /** The user's own API keys for the agent chat; only whether each vendor has one is visible here. */
   agentKeys: {
     state: () => Promise<ApiKeysState>;

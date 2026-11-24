@@ -64,6 +64,8 @@ export type RendererToMain = {
   "agentChat.reset": (conversation: string) => void;
   /** Saves a file the user attached to a chat message; resolves with where the agent finds it. */
   "agentChat.attach": (name: string, data: Uint8Array) => string;
+  /** Renames the window's document file; the old file goes to the Recycle Bin. */
+  "document.rename": (name: string) => void;
   /** Which vendors have one of the user's own API keys stored. */
   "agentKeys.state": () => ApiKeysState;
   /** Stores a vendor's API key, encrypted by the system keychain, or removes it when null. */

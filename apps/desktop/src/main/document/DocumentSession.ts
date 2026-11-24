@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import type { WorkspaceDocumentState } from "../../shared/workspace/lanes";
 import { AsyncOnce } from "../AsyncOnce";
@@ -239,6 +240,45 @@ export class DocumentSession {
   }
 
   /**
+   * Renames the document's file: saves it under the new name in the same
+   * folder, so the window carries on with it.
+   *
+   * @remarks
+   * An untitled document has no file yet, so this opens Save As with the name
+   * filled in. The old file is left for the caller to put away (to the
+   * Recycle Bin), never deleted here.
+   *
+   * @param name - the new file name, with or without its extension.
+   * @returns the old file's path when the document moved; otherwise null.
+   */
+  async rename(name: string): Promise<string | null> {
+    const fileName = documentFileName(name);
+    if (!fileName) return null;
+
+    const state = await this.#requestState();
+    if (!state) return null;
+
+    const previous = state.saveTarget;
+    if (state.needsSaveAs || !previous) {
+      const savePath = await this.#nativeDialogs.saveShiftDocument(
+        this.#dialogWindow(),
+        withExtension(fileName, ".shift"),
+      );
+      if (savePath) await this.#requestSave(savePath);
+      return null;
+    }
+
+    const next = path.join(path.dirname(previous), withExtension(fileName, path.extname(previous)));
+    if (next === previous) return null;
+    if (fs.existsSync(next))
+      throw new Error(`${path.basename(next)} already exists in that folder`);
+
+    this.#log.info("rename document", { from: previous, to: next });
+    await this.#requestSave(next);
+    return previous;
+  }
+
+  /**
    * Applies a utility-owned document state snapshot to main-owned UI.
    *
    * @param state - latest utility state, or null when no document is open.
@@ -360,4 +400,19 @@ export class DocumentSession {
       window.setTitle(`${name}${dirty} - ${this.#applicationName()}`);
     }
   }
+}
+
+/** A name the user typed, as a file name: no path separators or characters Windows refuses. */
+function documentFileName(name: string): string {
+  return name
+    .replace(/[<>:"|?*]/g, "")
+    .replaceAll("/", "")
+    .replaceAll(String.fromCharCode(92), "")
+    .trim();
+}
+
+/** The file name with the extension it keeps, unless the name already ends in it. */
+function withExtension(fileName: string, extension: string): string {
+  if (!extension || fileName.toLowerCase().endsWith(extension.toLowerCase())) return fileName;
+  return `${fileName}${extension}`;
 }
