@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type KeyboardEvent } from "react";
 import {
   Button,
   cn,
@@ -14,6 +14,8 @@ import {
   useToastManager,
 } from "@shift/ui";
 import { recentFolderLabels, type RecentDocument } from "@shared/recents";
+import { EmptyState } from "@/components/visant/ui/empty-state";
+import { nextRecentFileIndex } from "./recentFileFocus";
 import { RecentFileRow, RecentFileTile, TILE_CLASS } from "./RecentFileItem";
 import { useMinuteClock } from "./useRecentDocuments";
 import {
@@ -72,7 +74,7 @@ const RecentFilesSection = ({ documents }: RecentFilesProps) => {
         <h2 id="recent-files-heading" className="text-heading font-semibold text-primary">
           Recent
         </h2>
-        <ViewToggle view={view} onChange={setView} />
+        {documents.length > 0 && <ViewToggle view={view} onChange={setView} />}
       </header>
       <RecentFileCollection
         documents={shown}
@@ -104,14 +106,12 @@ const RecentFileCollection = ({
   actions,
   viewAll,
 }: RecentFileCollectionProps) => {
-  if (documents.length === 0) {
-    return <p className="py-10 text-center text-sm text-secondary">No recent fonts</p>;
-  }
+  if (documents.length === 0) return <NoRecentFiles />;
 
   if (view === "list") {
     return (
       <div className="flex flex-col gap-4">
-        <ul aria-label="Recent files" className="flex flex-col">
+        <ul aria-label="Recent files" className="flex flex-col" onKeyDown={moveFocusWithArrows}>
           {documents.map((document) => (
             <RecentFileRow
               key={document.path}
@@ -132,7 +132,11 @@ const RecentFileCollection = ({
   }
 
   return (
-    <ul aria-label="Recent files" className="grid grid-cols-4 gap-x-4 gap-y-5">
+    <ul
+      aria-label="Recent files"
+      className="grid grid-cols-4 gap-x-4 gap-y-5"
+      onKeyDown={moveFocusWithArrows}
+    >
       {documents.map((document, index) => (
         <RecentFileTile
           key={document.path}
@@ -161,6 +165,47 @@ const RecentFileCollection = ({
     </ul>
   );
 };
+
+/**
+ * Arrow keys, Home and End move focus between the files' open buttons, as in
+ * a Finder or Figma grid; Tab still reaches each file's ⋯ menu.
+ */
+function moveFocusWithArrows(event: KeyboardEvent<HTMLUListElement>): void {
+  const buttons = [...event.currentTarget.querySelectorAll<HTMLElement>("[data-recent-open]")];
+  const current = buttons.findIndex((button) => button === event.target);
+  if (current < 0) return;
+
+  const rects = buttons.map((button) => button.getBoundingClientRect());
+  const next = nextRecentFileIndex(rects, current, event.key);
+  if (next === null) return;
+
+  event.preventDefault();
+  buttons[next]?.focus();
+}
+
+/**
+ * First run, or every recent file removed: what will land here, drawn as a
+ * small ghost of the grid. The header's Open… and New font are the actions.
+ */
+const NoRecentFiles = () => (
+  <div className="visant-kit pt-10">
+    <EmptyState framed={false} art={<GhostRecentGrid />} title="Fonts you open land here">
+      Each one drawn in its own letters. Open a Glyphs, UFO, designspace or font file, or start a
+      new font.
+    </EmptyState>
+  </div>
+);
+
+/** A miniature of the recents grid: the wide tile with a specimen, then two tiles. */
+const GhostRecentGrid = () => (
+  <div aria-hidden="true" className="mb-2 flex gap-1.5">
+    <div className="flex h-12 w-24 items-center rounded-lg bg-muted px-3 text-heading font-semibold text-muted-foreground">
+      Ag
+    </div>
+    <div className="h-12 w-12 rounded-lg bg-muted" />
+    <div className="h-12 w-12 rounded-lg bg-muted" />
+  </div>
+);
 
 const ViewToggle = ({
   view,

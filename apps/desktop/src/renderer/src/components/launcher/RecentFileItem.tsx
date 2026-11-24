@@ -165,6 +165,7 @@ export const RecentFileTile = ({
           <button
             type="button"
             aria-label={filename}
+            data-recent-open=""
             onClick={() => activate(document)}
             className={TILE_BUTTON_CLASS}
           />
@@ -217,6 +218,7 @@ export const RecentFileRow = ({ document, now, actions }: RecentFileItemProps) =
     >
       <button
         type="button"
+        data-recent-open=""
         onClick={() => activate(document)}
         className={cn(
           "flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md p-1.5 text-left outline-none",
