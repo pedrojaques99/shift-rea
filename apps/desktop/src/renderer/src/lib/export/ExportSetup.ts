@@ -29,7 +29,9 @@ export class ExportSetup {
 
   /** Remembers `rows` as what `document` exports. */
   rememberRows(document: WorkspaceDocumentState, rows: readonly ExportRow[]): void {
-    const exportRows = rows.map(({ target, output }) => ({ target, output }));
+    const exportRows = rows.map(({ target, output, hint }) =>
+      hint ? { target, output, hint } : { target, output },
+    );
     this.#views.update(documentViewKey(document), { exportRows });
   }
 

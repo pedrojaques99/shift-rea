@@ -18,6 +18,10 @@ nodeLinker: hoisted
 
 minimumReleaseAgeExclude:
   - brace-expansion@5.0.9
+  - '@ai-sdk/gateway@4.0.154'
+  - '@ai-sdk/google@4.0.125'
+  - '@ai-sdk/mcp@2.0.104'
+  - ai@7.0.181
 
 overrides:
   # Patched releases outside upstream transitive dependency ranges.

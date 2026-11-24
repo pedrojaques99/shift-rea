@@ -338,6 +338,19 @@ pub enum ExportError {
     #[error("fontmake could not build the CFF font: {detail}")]
     FontmakeFailed { detail: String },
 
+    #[error(
+        "{} could not run, so the font can't be hinted; install it with `pip install ttfautohint-py` or set SHIFT_TTFAUTOHINT ({source})",
+        program.to_string_lossy()
+    )]
+    AutohintMissing {
+        program: std::ffi::OsString,
+        #[source]
+        source: std::io::Error,
+    },
+
+    #[error("ttfautohint could not hint the font: {detail}")]
+    AutohintFailed { detail: String },
+
     #[error("failed to write {} sources to {path}: {source}", format.name())]
     WriteSources {
         format: ExportFormat,
@@ -363,6 +376,7 @@ pub enum VariableComponents {
 #[derive(Clone, Debug, Default)]
 pub struct FontExporter {
     variable_components: VariableComponents,
+    autohint: bool,
 }
 
 impl FontExporter {
@@ -376,6 +390,25 @@ impl FontExporter {
     pub fn with_variable_components(mut self, variable_components: VariableComponents) -> Self {
         self.variable_components = variable_components;
         self
+    }
+
+    /// This exporter, adding ttfautohint's TrueType instructions to every
+    /// TrueType binary it writes when `autohint` is true; see [`crate::autohint`].
+    #[must_use]
+    pub fn with_autohint(mut self, autohint: bool) -> Self {
+        self.autohint = autohint;
+        self
+    }
+
+    /// Hints `ttf` when this exporter adds hinting; returns it unchanged
+    /// otherwise, and for a variable binary, which ttfautohint cannot hint.
+    pub(crate) fn hinted(&self, ttf: Vec<u8>) -> Result<Vec<u8>, ExportError> {
+        let variable = skrifa::FontRef::new(&ttf)
+            .is_ok_and(|font| font.table_data(skrifa::Tag::new(b"fvar")).is_some());
+        if !self.autohint || variable {
+            return Ok(ttf);
+        }
+        crate::autohint::autohint(&ttf)
     }
 
     /// Writes `font` in the requested format, replacing each destination
@@ -604,7 +637,7 @@ impl FontExporter {
         ttf_path: &Path,
         encodings: &BinaryEncodings,
     ) -> Result<Vec<PathBuf>, ExportError> {
-        let bytes = self.compile_ttf(font)?;
+        let bytes = self.hinted(self.compile_ttf(font)?)?;
         encodings.write(&bytes, ttf_path)
     }
 

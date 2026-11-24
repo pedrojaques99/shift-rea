@@ -36,7 +36,7 @@ export interface ExportControls {
   readonly open: boolean;
   setOpen(open: boolean): void;
   addRow(): void;
-  updateRow(id: string, row: Pick<ExportRow, "target" | "output">): void;
+  updateRow(id: string, row: Partial<Pick<ExportRow, "target" | "output" | "hint">>): void;
   removeRow(id: string): void;
   /** The folder `target` writes into, or null until one is chosen for an unsaved document. */
   folder(target: ExportTarget): string | null;

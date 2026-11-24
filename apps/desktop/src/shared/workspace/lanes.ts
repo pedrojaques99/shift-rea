@@ -119,6 +119,8 @@ export type WorkspaceExportRequest = {
   mode: WorkspaceExportMode;
   /** The encodings each binary is written in; never empty. Source formats ignore it. */
   encodings: readonly WorkspaceBinaryEncoding[];
+  /** Adds ttfautohint's instructions to static TrueType binaries; off when absent. */
+  autohint?: boolean;
 };
 
 /** What a workspace export wrote, or would write when planned. */

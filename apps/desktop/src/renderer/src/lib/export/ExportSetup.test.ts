@@ -76,10 +76,12 @@ describe("each row asks the workspace for one export", () => {
     expect(exportRequestFor({ target: "variable", output: "woff2" })).toEqual({
       format: "ttf",
       encodings: ["woff2"],
+      autohint: false,
     });
     expect(exportRequestFor({ target: "static", output: "ttf" })).toEqual({
       format: "static-ttf",
       encodings: ["ttf"],
+      autohint: false,
     });
     expect(exportRequestFor({ target: "ufo", output: "designspace" }).format).toBe("designspace");
     expect(exportRequestFor({ target: "ufo", output: "ufo" }).format).toBe("ufo");
@@ -89,10 +91,21 @@ describe("each row asks the workspace for one export", () => {
     expect(exportRequestFor({ target: "variable", output: "otf" })).toEqual({
       format: "otf",
       encodings: ["ttf"],
+      autohint: false,
     });
     expect(exportRequestFor({ target: "static", output: "otf" })).toEqual({
       format: "static-otf",
       encodings: ["ttf"],
+      autohint: false,
     });
+  });
+
+  it("hints TrueType rows that ask for it, never CFF or sources", () => {
+    expect(exportRequestFor({ target: "static", output: "ttf", hint: true }).autohint).toBe(true);
+    expect(exportRequestFor({ target: "variable", output: "woff2", hint: true }).autohint).toBe(
+      true,
+    );
+    expect(exportRequestFor({ target: "static", output: "otf", hint: true }).autohint).toBe(false);
+    expect(exportRequestFor({ target: "ufo", output: "ufo", hint: true }).autohint).toBe(false);
   });
 });

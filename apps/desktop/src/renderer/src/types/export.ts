@@ -31,28 +31,47 @@ export interface ExportRow {
   readonly id: string;
   readonly target: ExportTarget;
   readonly output: ExportOutput;
+  /** Whether TrueType binaries get ttfautohint's instructions; off when absent. */
+  readonly hint?: boolean;
 }
 
 /** What one row asks the workspace to export. */
 export interface ExportRowRequest {
   readonly format: WorkspaceExportFormat;
   readonly encodings: readonly WorkspaceBinaryEncoding[];
+  readonly autohint: boolean;
 }
 
 /** The workspace export format and encodings that `row` writes. */
-export function exportRequestFor(row: Pick<ExportRow, "target" | "output">): ExportRowRequest {
+export function exportRequestFor(
+  row: Pick<ExportRow, "target" | "output" | "hint">,
+): ExportRowRequest {
+  const autohint = canHint(row) && row.hint === true;
   switch (row.target) {
     case "variable":
-      if (row.output === "otf") return { format: "otf", encodings: ["ttf"] };
+      if (row.output === "otf") return { format: "otf", encodings: ["ttf"], autohint: false };
 
-      return { format: "ttf", encodings: [binaryEncoding(row.output)] };
+      return { format: "ttf", encodings: [binaryEncoding(row.output)], autohint };
     case "static":
-      if (row.output === "otf") return { format: "static-otf", encodings: ["ttf"] };
+      if (row.output === "otf")
+        return { format: "static-otf", encodings: ["ttf"], autohint: false };
 
-      return { format: "static-ttf", encodings: [binaryEncoding(row.output)] };
+      return { format: "static-ttf", encodings: [binaryEncoding(row.output)], autohint };
     case "ufo":
-      return { format: row.output === "ufo" ? "ufo" : "designspace", encodings: ["ttf"] };
+      return {
+        format: row.output === "ufo" ? "ufo" : "designspace",
+        encodings: ["ttf"],
+        autohint: false,
+      };
   }
+}
+
+/**
+ * Whether `row` writes TrueType binaries, which ttfautohint can hint. A
+ * variable font stays unhinted even when asked; its static instances do not.
+ */
+export function canHint(row: Pick<ExportRow, "target" | "output">): boolean {
+  return row.target !== "ufo" && row.output !== "otf";
 }
 
 /** Whether `output` is one of the outputs `target` can be written as. */

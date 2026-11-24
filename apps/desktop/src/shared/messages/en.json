@@ -89,6 +89,8 @@
   "export.target.ufo": "UFO",
   "export.output.ttf": "TTF",
   "export.output.otf": "OTF (CFF)",
+  "export.hint": "TrueType hinting",
+  "export.hint.detail": "ttfautohint, for static fonts",
   "export.output.woff2": "WOFF2",
   "export.output.designspace": "Designspace",
   "export.output.ufo": "UFO",

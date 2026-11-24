@@ -57,6 +57,8 @@ pub struct NapiFontExportRequest {
   /// The encodings each binary is written in (`"ttf"`, `"woff2"`); TrueType
   /// only when absent. Source formats ignore it.
   pub encodings: Option<Vec<String>>,
+  /// Adds ttfautohint's instructions to TrueType binaries; off when absent.
+  pub autohint: Option<bool>,
 }
 
 #[napi(object)]
@@ -627,6 +629,7 @@ pub struct ExportFontTask {
   request: FontExportRequest,
   encodings: BinaryEncodings,
   mode: ExportMode,
+  autohint: bool,
 }
 
 impl Task for ExportFontTask {
@@ -634,7 +637,7 @@ impl Task for ExportFontTask {
   type JsValue = NapiFontExportResult;
 
   fn compute(&mut self) -> Result<Self::Output> {
-    let exporter = FontExporter::new();
+    let exporter = FontExporter::new().with_autohint(self.autohint);
     match self.mode {
       ExportMode::Write => exporter.export_with(&self.font, self.request.clone(), &self.encodings),
       ExportMode::Plan => exporter
@@ -1058,12 +1061,14 @@ impl Bridge {
     let format = ExportFormat::try_from(request.format.as_str()).map_err(invalid_arg)?;
     let encodings = binary_encodings(request.encodings.as_deref())?;
     let font = self.font_with_all_layers().map_err(generic_failure)?;
+    let autohint = request.autohint.unwrap_or(false);
     let request = FontExporter::request_in(&font, format, Path::new(&request.directory));
     Ok(AsyncTask::new(ExportFontTask {
       font,
       request,
       encodings,
       mode,
+      autohint,
     }))
   }
 

@@ -4,6 +4,7 @@
 )]
 
 mod atomic;
+pub mod autohint;
 mod binary_encoding;
 pub mod errors;
 pub mod export;

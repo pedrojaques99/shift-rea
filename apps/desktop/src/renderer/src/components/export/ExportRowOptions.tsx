@@ -8,6 +8,7 @@ import {
   PopoverPositioner,
   PopoverTitle,
   PopoverTrigger,
+  Switch,
   Tooltip,
   X,
 } from "@shift/ui";
@@ -21,7 +22,7 @@ import { useAxes } from "@/hooks/useAxes";
 import { useExportPlan, type ExportPlan } from "@/hooks/useExportPlan";
 import { useNamedInstances } from "@/hooks/useNamedInstances";
 import { folderBreadcrumb, middleCut, pathName } from "@/lib/export/exportPaths";
-import { exportRequestFor, type ExportRow } from "@/types/export";
+import { canHint, exportRequestFor, type ExportRow } from "@/types/export";
 import type { Workspace } from "@/workspace/Workspace";
 import { useFontSession } from "@/workspace/WorkspaceContext";
 import { outputLabel, targetLabel } from "./exportLabels";
@@ -121,7 +122,26 @@ const OptionsBody = ({ row, workspace }: { row: ExportRow; workspace: Workspace 
         </Button>
       </Tooltip>
       {needsInstances ? <NoInstances /> : <PlannedFiles plan={plan} />}
+      {canHint(row) ? <HintToggle row={row} /> : null}
     </div>
+  );
+};
+
+/** Whether the row's TrueType binaries get ttfautohint's instructions. */
+const HintToggle = ({ row }: { row: ExportRow }) => {
+  const exports = useExport();
+  return (
+    <label className="flex items-center justify-between gap-2 text-ui text-primary">
+      <span className="flex flex-col">
+        {message("export.hint")}
+        <span className="text-muted">{message("export.hint.detail")}</span>
+      </span>
+      <Switch
+        checked={row.hint === true}
+        aria-label={message("export.hint")}
+        onCheckedChange={(hint) => exports.updateRow(row.id, { hint })}
+      />
+    </label>
   );
 };
 
