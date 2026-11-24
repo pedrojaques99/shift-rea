@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import { LauncherLockup } from "@/app/branding";
 import { shiftProductName } from "@/app/release";
 import { HelpMenu } from "@/components/launcher/HelpMenu";
@@ -8,6 +8,7 @@ import { UpdateStrip } from "@/components/chrome/UpdateStrip";
 import { useRecentDocuments } from "@/components/launcher/useRecentDocuments";
 import { WindowControls } from "@/components/chrome/WindowControls";
 import { WindowMenuBar } from "@/components/chrome/WindowMenuBar";
+import { DropOverlay } from "@/components/visant/ui/drop-overlay";
 import { getShiftHost } from "@/host/shiftHost";
 
 export const Landing = () => {
@@ -25,9 +26,19 @@ export const Landing = () => {
   }, [recentsLoaded]);
 
   const isMac = getShiftHost().platform === "darwin";
+  const drop = useFontDrop();
 
   return (
-    <main className="relative flex h-screen flex-col bg-background text-primary">
+    <main
+      className="relative flex h-screen flex-col bg-background text-primary"
+      onDragEnter={drop.onDragEnter}
+      onDragOver={drop.onDragOver}
+      onDragLeave={drop.onDragLeave}
+      onDrop={drop.onDrop}
+    >
+      <div className="visant-kit pointer-events-none absolute inset-2 z-50">
+        <DropOverlay state={drop.state} message="Drop a font to open it" doneMessage="Opening…" />
+      </div>
       {isMac ? (
         // macOS draws the traffic lights (systemTrafficLights in main); this strip
         // only drags the window. Overlaid so the launcher centres against the
@@ -68,4 +79,58 @@ async function signalReady(): Promise<void> {
   } catch (error) {
     console.error("signalling launcher readiness failed", error);
   }
+}
+
+/**
+ * A font file dragged from the system onto the launcher opens like a recent
+ * file does (main shows its own message when it can't be opened).
+ */
+function useFontDrop() {
+  const [state, setState] = useState<"idle" | "over" | "drop">("idle");
+  // dragenter and dragleave fire for every child crossed; count them to know
+  // when the drag really leaves the window.
+  const depth = useRef(0);
+
+  const carriesFiles = (event: DragEvent) => event.dataTransfer.types.includes("Files");
+
+  return {
+    state,
+    onDragEnter: (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+
+      depth.current += 1;
+      setState("over");
+    },
+    onDragOver: (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+    },
+    onDragLeave: (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+
+      depth.current = Math.max(0, depth.current - 1);
+      if (depth.current === 0) setState("idle");
+    },
+    onDrop: async (event: DragEvent) => {
+      if (!carriesFiles(event)) return;
+
+      event.preventDefault();
+      depth.current = 0;
+      const [file] = event.dataTransfer.files;
+      const path = file ? getShiftHost().droppedFiles.pathFor(file) : "";
+      if (!path) {
+        setState("idle");
+        return;
+      }
+
+      setState("drop");
+      try {
+        await getShiftHost().recents.open(path);
+      } finally {
+        setState("idle");
+      }
+    },
+  };
 }

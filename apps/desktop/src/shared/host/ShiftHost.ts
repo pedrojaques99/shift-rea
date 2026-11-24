@@ -181,6 +181,11 @@ export interface ShiftHost {
      */
     onEvent: (callback: (message: { runId: string; event: ChatEvent }) => void) => () => void;
   };
+  /** Files dropped on a window from the system. */
+  droppedFiles: {
+    /** Where a dropped file lives on disk; empty for one that has no file, such as dragged text. */
+    pathFor: (file: File) => string;
+  };
   /** The window's document file. */
   documentFile: {
     /** Renames the file in its folder (Save As for an untitled font); the old file goes to the trash. */

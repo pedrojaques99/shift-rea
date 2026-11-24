@@ -1,7 +1,7 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
 import type { IpcRendererEvent } from "electron";
 import type { ShiftHost } from "../shared/host/ShiftHost";
 import { invoke, listen } from "../shared/ipc/renderer";
@@ -20,6 +20,9 @@ const shiftHost: ShiftHost = {
     history: invoke(ipcRenderer, "agentChat.history"),
     reset: invoke(ipcRenderer, "agentChat.reset"),
     onEvent: listen(ipcRenderer, "agentChat.event"),
+  },
+  droppedFiles: {
+    pathFor: (file: File) => webUtils.getPathForFile(file),
   },
   documentFile: {
     rename: invoke(ipcRenderer, "document.rename"),
