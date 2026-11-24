@@ -503,3 +503,30 @@ fn reports_a_point_a_unit_off_a_metric_line() {
 
     assert!(glyph_a_findings(&font).contains(&Check::PointOffMetric));
 }
+
+#[test]
+fn a_mirrored_component_beside_a_contour_is_reported_once() {
+    let mut font = sample_variable_font();
+    let default_id = font.default_source_id().unwrap();
+    let mut stem = crate::Glyph::new("stem".to_string());
+    let mut stem_layer = GlyphLayer::with_width(crate::LayerId::new(), default_id, 100.0);
+    stem_layer.add_contour(square(0.0, 0.0, 100.0));
+    stem.set_layer(stem_layer);
+    let stem_id = stem.id();
+    let mut mirrored = crate::Component::new(stem_id, "stem");
+    mirrored.set_transform(crate::DecomposedTransform::from_matrix(
+        &crate::Transform::scale(-1.0, 1.0),
+    ));
+    // `A` is the font's last glyph, so edit it before adding `stem`.
+    edit_layer(&mut font, "Regular", |layer| {
+        layer.add_component(mirrored);
+    });
+    font.insert_glyph(stem).unwrap();
+
+    let reported = glyph_a_findings(&font)
+        .into_iter()
+        .filter(|check| *check == Check::MirroredComponent)
+        .count();
+
+    assert_eq!(reported, 1);
+}

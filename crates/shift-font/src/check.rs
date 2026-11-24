@@ -115,6 +115,11 @@ pub enum Check {
     /// A point sits within two units of a vertical metric (baseline, x-height,
     /// cap height and so on) without sitting on it: almost aligned.
     PointOffMetric,
+    /// A mirrored component sits beside parts that aren't mirrored, so its
+    /// contours run the other way: kept as a composite, the overlap cancels
+    /// into a hole. Export decomposes such a glyph, reversing what the mirror
+    /// reversed; other compilers may not.
+    MirroredComponent,
     /// A glyph can't be drawn, for example because of a component cycle.
     UnresolvedGlyph,
     /// A swap never wins anywhere on the font's axes: its condition
@@ -144,7 +149,7 @@ pub enum Check {
 
 impl Check {
     /// Every check, in code order.
-    pub const ALL: [Self; 31] = [
+    pub const ALL: [Self; 32] = [
         Self::NoDefaultMaster,
         Self::DuplicateMasterLocation,
         Self::MasterOutsideAxis,
@@ -166,6 +171,7 @@ impl Check {
         Self::EmptyOutline,
         Self::MissingExtreme,
         Self::PointOffMetric,
+        Self::MirroredComponent,
         Self::UnresolvedGlyph,
         Self::NeverUsedSwap,
         Self::ComponentConditionNotExported,
@@ -217,6 +223,7 @@ impl Check {
             Self::UnresolvedGlyph => ("O007", "unresolved-glyph", Severity::Error),
             Self::MissingExtreme => ("O008", "missing-extreme", Severity::Warning),
             Self::PointOffMetric => ("O009", "point-off-metric", Severity::Warning),
+            Self::MirroredComponent => ("O010", "mirrored-component", Severity::Warning),
             Self::NeverUsedSwap => ("A001", "never-used-swap", Severity::Warning),
             Self::ComponentConditionNotExported => (
                 "A002",

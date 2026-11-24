@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::sync::Arc;
 
 use fontdrasil::coords::{NormalizedCoord, NormalizedLocation};
@@ -19,6 +19,7 @@ use write_fonts::tables::gdef::GlyphClassDef;
 use shift_text::shaper_font::{AxisConversionError, ToGlyphClassDef, UnitsPerEm, to_ir_axes};
 
 use super::axes::{normalized_design_location, normalized_source_location};
+use super::fontinfo::FontinfoTables;
 use super::glyph::GlyphWork;
 use super::glyph_axes::{GlyphAxesError, HiddenAxes, normalized};
 use super::kerning::{KerningInstanceWork, KerningLocationsWork};
@@ -94,6 +95,12 @@ pub(super) struct ShiftSnapshot {
     pub skipped_glyphs: HashSet<String>,
     /// The `rvrn` substitutions that swap in glyphs' swaps.
     pub feature_variations: Option<VariableFeature>,
+    /// `OS/2` and `gasp` values from the fontinfo remainder.
+    pub fontinfo: FontinfoTables,
+    /// Glyphs with a master that mirrors a component beside parts that
+    /// aren't mirrored ([`GlyphLayer::mixes_mirrored_components`]), which
+    /// the compiler decomposes so their contours all run one way.
+    pub mixed_mirror_glyphs: BTreeSet<String>,
 }
 
 impl ShiftSnapshot {
@@ -260,6 +267,21 @@ impl ShiftIrSource {
         let glyphs = font.glyphs_with_derived_placements()?;
         let lattice = Lattice::new(font.axes(), &ir_axes);
         let feature_variations = swaps::feature_variations(&glyphs, &lattice, &skipped_glyphs)?;
+        let mixed_mirror_glyphs = glyphs
+            .iter()
+            .filter(|glyph| {
+                font.sources()
+                    .iter()
+                    .filter(|source| source.is_master())
+                    .filter_map(|source| glyph.layer_for_source(source.id()))
+                    .any(GlyphLayer::mixes_mirrored_components)
+            })
+            .map(|glyph| glyph.name().to_string())
+            .collect();
+        let fontinfo = FontinfoTables::read(
+            font.fontinfo_remainder(),
+            font.metadata().style_name.as_deref(),
+        );
 
         Ok(Self {
             snapshot: Arc::new(ShiftSnapshot {
@@ -297,6 +319,8 @@ impl ShiftIrSource {
                 },
                 skipped_glyphs,
                 feature_variations,
+                fontinfo,
+                mixed_mirror_glyphs,
             }),
         })
     }

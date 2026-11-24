@@ -262,7 +262,9 @@ pub enum ExportError {
     #[error("unsupported export format: {format}")]
     UnsupportedFormat { format: String },
 
-    #[error("cannot tell the export format from {path}: end it in .designspace, .ufo or .ttf")]
+    #[error(
+        "cannot tell the export format from {path}: end it in .designspace, .ufo, .ttf or .otf"
+    )]
     UnknownExtension { path: PathBuf },
 
     #[error("export path must end in .{} for {} export: {path}", format.extension(), format.name())]
@@ -400,15 +402,16 @@ impl FontExporter {
         self
     }
 
-    /// Hints `ttf` when this exporter adds hinting; returns it unchanged
-    /// otherwise, and for a variable binary, which ttfautohint cannot hint.
-    pub(crate) fn hinted(&self, ttf: Vec<u8>) -> Result<Vec<u8>, ExportError> {
-        let variable = skrifa::FontRef::new(&ttf)
+    /// Hints `ttf` when this exporter adds hinting. Otherwise, and for a
+    /// variable binary, which ttfautohint cannot hint, the binary stays
+    /// unhinted and gets [`with_dropout_control`]'s `prep`.
+    pub(crate) fn hinted(&self, ttf: &[u8]) -> Result<Vec<u8>, ExportError> {
+        let variable = FontRef::new(ttf)
             .is_ok_and(|font| font.table_data(skrifa::Tag::new(b"fvar")).is_some());
         if !self.autohint || variable {
-            return Ok(ttf);
+            return with_dropout_control(ttf);
         }
-        crate::autohint::autohint(&ttf)
+        crate::autohint::autohint(ttf)
     }
 
     /// Writes `font` in the requested format, replacing each destination
@@ -637,7 +640,7 @@ impl FontExporter {
         ttf_path: &Path,
         encodings: &BinaryEncodings,
     ) -> Result<Vec<PathBuf>, ExportError> {
-        let bytes = self.hinted(self.compile_ttf(font)?)?;
+        let bytes = self.hinted(&self.compile_ttf(font)?)?;
         encodings.write(&bytes, ttf_path)
     }
 
@@ -745,6 +748,39 @@ fn strip_compiler_version(bytes: &[u8]) -> Result<Vec<u8>, ExportError> {
         .build())
 }
 
+/// The `prep` program gftools gives an unhinted font: `SCANCTRL 511` and
+/// `SCANTYPE 4` turn on dropout control at every size, so thin stems don't
+/// break up when a renderer grid-fits them.
+const DROPOUT_CONTROL_PREP: [u8; 7] = [
+    0xB8, 0x01, 0xFF, // PUSHW[1] 511
+    0x85, // SCANCTRL
+    0xB0, 0x04, // PUSHB[1] 4
+    0x8D, // SCANTYPE
+];
+
+/// Adds [`DROPOUT_CONTROL_PREP`] to an unhinted TrueType binary; a binary
+/// with its own `prep` or `fpgm` is hinted and returned unchanged.
+///
+/// # Errors
+///
+/// Returns [`ExportError::CompileTtf`] when the binary cannot be read back.
+fn with_dropout_control(bytes: &[u8]) -> Result<Vec<u8>, ExportError> {
+    let font = FontRef::new(bytes).map_err(|error| compile_error(&error))?;
+    let has_instructions = [b"prep", b"fpgm"]
+        .into_iter()
+        .any(|tag| font.table_data(write_fonts::types::Tag::new(tag)).is_some());
+    if has_instructions {
+        return Ok(bytes.to_vec());
+    }
+    Ok(FontBuilder::new()
+        .add_raw(
+            write_fonts::types::Tag::new(b"prep"),
+            DROPOUT_CONTROL_PREP.as_slice(),
+        )
+        .copy_missing_tables(font)
+        .build())
+}
+
 fn compile_error(error: &impl std::fmt::Display) -> ExportError {
     ExportError::CompileTtf {
         message: error.to_string(),
@@ -841,6 +877,177 @@ mod tests {
                 .charmap()
                 .mappings()
                 .any(|(codepoint, _)| codepoint == 0x0041)
+        );
+    }
+
+    /// Signed areas of each contour of a compiled glyph's control polygon,
+    /// positive for counter-clockwise.
+    #[derive(Default)]
+    struct ContourAreas {
+        areas: Vec<f64>,
+        start: (f32, f32),
+        last: (f32, f32),
+    }
+
+    impl ContourAreas {
+        fn edge(&mut self, x: f32, y: f32) {
+            let (x0, y0) = self.last;
+            if let Some(area) = self.areas.last_mut() {
+                *area += f64::from(x0 * y - x * y0) / 2.0;
+            }
+            self.last = (x, y);
+        }
+    }
+
+    impl skrifa::outline::OutlinePen for ContourAreas {
+        fn move_to(&mut self, x: f32, y: f32) {
+            self.areas.push(0.0);
+            self.start = (x, y);
+            self.last = (x, y);
+        }
+        fn line_to(&mut self, x: f32, y: f32) {
+            self.edge(x, y);
+        }
+        fn quad_to(&mut self, cx0: f32, cy0: f32, x: f32, y: f32) {
+            self.edge(cx0, cy0);
+            self.edge(x, y);
+        }
+        fn curve_to(&mut self, cx0: f32, cy0: f32, cx1: f32, cy1: f32, x: f32, y: f32) {
+            self.edge(cx0, cy0);
+            self.edge(cx1, cy1);
+            self.edge(x, y);
+        }
+        fn close(&mut self) {
+            let (x, y) = self.start;
+            self.edge(x, y);
+        }
+    }
+
+    fn rectangle(min_x: f64, min_y: f64, max_x: f64, max_y: f64) -> shift_font::Contour {
+        shift_font::test_support::closed_contour(&[
+            (min_x, min_y),
+            (max_x, min_y),
+            (max_x, max_y),
+            (min_x, max_y),
+        ])
+    }
+
+    /// A `stem` glyph, and a `u` drawing a counter-clockwise bowl with the
+    /// stem mirrored over it, so the stem's contour runs clockwise where the
+    /// two overlap.
+    fn font_with_mirrored_stem() -> Font {
+        let mut font = sample_variable_font();
+        let mut stem = shift_font::Glyph::new("stem");
+        for source in font.sources().to_vec() {
+            let mut layer =
+                shift_font::GlyphLayer::with_width(shift_font::LayerId::new(), source.id(), 100.0);
+            layer.add_contour(rectangle(0.0, 0.0, 80.0, 500.0));
+            stem.set_layer(layer);
+        }
+        let stem_id = font.insert_glyph(stem).unwrap();
+        let mut u = shift_font::Glyph::with_unicode("u", 0x75);
+        for source in font.sources().to_vec() {
+            let mut layer =
+                shift_font::GlyphLayer::with_width(shift_font::LayerId::new(), source.id(), 500.0);
+            layer.add_contour(rectangle(50.0, 0.0, 450.0, 100.0));
+            let mut mirrored = shift_font::Component::new(stem_id, "stem");
+            mirrored.set_transform(shift_font::DecomposedTransform::from_matrix(
+                &shift_font::Transform {
+                    xx: -1.0,
+                    xy: 0.0,
+                    yx: 0.0,
+                    yy: 1.0,
+                    dx: 450.0,
+                    dy: 0.0,
+                },
+            ));
+            layer.add_component(mirrored);
+            u.set_layer(layer);
+        }
+        font.insert_glyph(u).unwrap();
+        font
+    }
+
+    #[test]
+    fn a_mirrored_component_over_a_contour_compiles_running_one_way() {
+        use skrifa::raw::TableProvider;
+        use skrifa::raw::tables::glyf::Glyph as GlyfGlyph;
+
+        let font = font_with_mirrored_stem();
+
+        let bytes = FontExporter::new().compile_ttf(&font).unwrap();
+
+        let compiled = FontRef::new(&bytes).unwrap();
+        let gid = compiled.charmap().map(0x75_u32).unwrap();
+        let glyf_glyph = compiled
+            .loca(None)
+            .unwrap()
+            .get_glyf(gid, &compiled.glyf().unwrap())
+            .unwrap();
+        assert!(
+            matches!(glyf_glyph, Some(GlyfGlyph::Simple(_))),
+            "the mirrored composite is decomposed"
+        );
+        let mut areas = ContourAreas::default();
+        compiled
+            .outline_glyphs()
+            .get(gid)
+            .unwrap()
+            .draw(skrifa::instance::Size::unscaled(), &mut areas)
+            .unwrap();
+        assert_eq!(areas.areas.len(), 2);
+        assert!(
+            areas.areas.iter().all(|area| *area > 0.0)
+                || areas.areas.iter().all(|area| *area < 0.0),
+            "every contour runs the same way: {:?}",
+            areas.areas
+        );
+    }
+
+    #[test]
+    fn exported_variable_ttf_carries_selection_name_25_gasp_and_prep() {
+        use skrifa::raw::TableProvider;
+        use write_fonts::tables::os2::SelectionFlags;
+
+        let mut font = sample_variable_font();
+        font.fontinfo_remainder_mut().set(
+            "openTypeOS2Selection".to_string(),
+            shift_font::LibValue::Array(vec![shift_font::LibValue::Integer(7)]),
+        );
+        let temp_dir = tempfile::tempdir().unwrap();
+        let path = temp_dir.path().join("Variable.ttf");
+
+        FontExporter::new()
+            .export(
+                &font,
+                FontExportRequest {
+                    path: path.clone(),
+                    format: ExportFormat::Ttf,
+                },
+            )
+            .unwrap();
+
+        let bytes = std::fs::read(&path).unwrap();
+        let compiled = FontRef::new(&bytes).unwrap();
+        assert_eq!(
+            compiled.os2().unwrap().fs_selection(),
+            SelectionFlags::USE_TYPO_METRICS | SelectionFlags::REGULAR
+        );
+        let family = font.metadata().family_name.clone().unwrap();
+        let prefix = compiled
+            .localized_strings(skrifa::string::StringId::VARIATIONS_POSTSCRIPT_NAME_PREFIX)
+            .english_or_first()
+            .map(|name| name.to_string());
+        assert_eq!(prefix, Some(postscript_safe(&family)));
+        let gasp = compiled.gasp().unwrap();
+        assert_eq!(gasp.gasp_ranges().len(), 1);
+        assert_eq!(gasp.gasp_ranges()[0].range_max_ppem(), u16::MAX);
+        assert_eq!(
+            compiled
+                .table_data(skrifa::Tag::new(b"prep"))
+                .unwrap()
+                .as_bytes(),
+            DROPOUT_CONTROL_PREP.as_slice()
         );
     }
 

@@ -306,7 +306,9 @@ fn compile(args: CompileArgs) -> miette::Result<Vec<FontExportResult>> {
     } else {
         BinaryEncodings::ttf()
     };
-    let font = load_document(&args.path)?;
+    // A source that isn't a `.shift` document is read in memory, as `check`
+    // and `proof` read it; nothing is written beside it.
+    let (font, _) = check::read_font(&args.path)?;
     let variable_components = if args.varc {
         VariableComponents::Varc
     } else {

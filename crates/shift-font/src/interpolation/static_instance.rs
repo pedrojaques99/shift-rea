@@ -11,6 +11,8 @@ use crate::{
 impl Font {
     /// Returns the static font `instance` names: [`Self::static_at`] its
     /// location mapped into design space, styled with the instance's name.
+    /// The default source's `styleMapStyleName` is dropped, since it names
+    /// the default's style, not the instance's.
     ///
     /// # Errors
     ///
@@ -19,6 +21,7 @@ impl Font {
         let location = self.mapped_location(instance.location())?;
         let mut font = self.static_at(&location)?;
         font.metadata_mut().style_name = Some(instance.name().to_string());
+        font.fontinfo_remainder_mut().remove("styleMapStyleName");
         Ok(font)
     }
 

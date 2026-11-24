@@ -442,6 +442,28 @@ impl GlyphLayer {
         self.components.values()
     }
 
+    /// Returns whether a mirrored component sits beside a part that is not
+    /// mirrored: a closed contour of the layer's own or another component.
+    ///
+    /// A mirroring transform reverses the component's contours. Kept as a
+    /// TrueType composite, they then run against the layer's other parts, and
+    /// where the two overlap the nonzero fill cancels into a hole. Decomposing
+    /// such a layer, reversing what the mirror reversed, keeps every contour
+    /// running one way; a layer whose parts all mirror stays consistent as a
+    /// composite.
+    pub fn mixes_mirrored_components(&self) -> bool {
+        let mut mirrored = false;
+        let mut unmirrored = self.contours_iter().any(Contour::is_closed);
+        for component in self.components_iter() {
+            if component.matrix().mirrors() {
+                mirrored = true;
+            } else {
+                unmirrored = true;
+            }
+        }
+        mirrored && unmirrored
+    }
+
     /// Returns the glyph each component draws, in component order.
     pub fn component_glyph_ids(&self) -> impl Iterator<Item = GlyphId> + '_ {
         self.components_iter().map(Component::base_glyph_id)
@@ -834,6 +856,7 @@ impl Glyph {
 mod tests {
     use super::*;
     use crate::Anchor;
+    use crate::component::{DecomposedTransform, Transform};
     use std::sync::Arc;
 
     /// A layer as a reader converts one: fresh entity ids on every call.
@@ -851,6 +874,39 @@ mod tests {
             None,
         ));
         layer
+    }
+
+    fn placed(base: &str, transform: Transform) -> Component {
+        let mut component = Component::new(GlyphId::new(), base);
+        component.set_transform(DecomposedTransform::from_matrix(&transform));
+        component
+    }
+
+    #[test]
+    fn a_mirrored_component_beside_unmirrored_parts_mixes_directions() {
+        let mirror = Transform::scale(-1.0, 1.0);
+        let mut beside_contour = GlyphLayer::with_width(LayerId::new(), SourceId::new(), 500.0);
+        beside_contour.add_contour(crate::contour![(0.0, 0.0), (100.0, 200.0), (200.0, 0.0)]);
+        beside_contour.add_component(placed("stem", mirror));
+        let mut beside_component = GlyphLayer::with_width(LayerId::new(), SourceId::new(), 500.0);
+        beside_component.add_component(placed("stem", mirror));
+        beside_component.add_component(placed("bowl", Transform::identity()));
+
+        assert!(beside_contour.mixes_mirrored_components());
+        assert!(beside_component.mixes_mirrored_components());
+    }
+
+    #[test]
+    fn parts_that_all_mirror_or_none_do_not_mix_directions() {
+        let mut all_mirrored = GlyphLayer::with_width(LayerId::new(), SourceId::new(), 500.0);
+        all_mirrored.add_component(placed("stem", Transform::scale(-1.0, 1.0)));
+        all_mirrored.add_component(placed("bowl", Transform::scale(1.0, -1.0)));
+        let mut rotated = GlyphLayer::with_width(LayerId::new(), SourceId::new(), 500.0);
+        rotated.add_contour(crate::contour![(0.0, 0.0), (100.0, 200.0), (200.0, 0.0)]);
+        rotated.add_component(placed("bowl", Transform::scale(-1.0, -1.0)));
+
+        assert!(!all_mirrored.mixes_mirrored_components());
+        assert!(!rotated.mixes_mirrored_components());
     }
 
     #[test]

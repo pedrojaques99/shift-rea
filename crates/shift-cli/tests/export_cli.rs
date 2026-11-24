@@ -105,8 +105,9 @@ fn refused_exports_say_why_and_write_nothing() {
         },
         Refusal {
             variable: false,
-            output: "Lab.otf",
-            reason: ".designspace, .ufo or .ttf",
+            // .otf exports through fontmake now; a format Shift can't write is still refused.
+            output: "Lab.pdf",
+            reason: ".designspace, .ufo, .ttf or .otf",
         },
     ];
     for refusal in refusals {

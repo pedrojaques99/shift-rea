@@ -3,11 +3,11 @@ use std::sync::Arc;
 
 use fontdrasil::coords::NormalizedLocation;
 use fontdrasil::orchestration::{Access, Work};
-use fontdrasil::types::Axes;
+use fontdrasil::types::{Axes, Tag};
 use fontir::error::Error;
 use fontir::ir::{
-    DEFAULT_VENDOR_ID, FeatureSources, FeaturesSource, GlobalMetric, GlobalMetricsBuilder,
-    GlyphOrder, NameBuilder, PreliminaryGdefCategories, StaticMetadata,
+    DEFAULT_VENDOR_ID, FeatureSources, FeaturesSource, FilterScope, GlobalMetric,
+    GlobalMetricsBuilder, GlyphOrder, NameBuilder, PreliminaryGdefCategories, StaticMetadata,
 };
 use fontir::orchestration::{Context, Flags, WorkId};
 use shift_font::{Source, SourceList, StandardMetrics};
@@ -16,6 +16,7 @@ use write_fonts::types::NameId;
 use super::axes::{normalized_source_location, to_ir_named_instances};
 use super::source::ShiftSnapshot;
 use super::stat::generated_stat_fea;
+use crate::export::postscript_safe;
 
 /// Establishes axes, global master locations, names, and preliminary glyph order.
 ///
@@ -67,6 +68,18 @@ impl Work<Context, WorkId, Error> for StaticMetadataWork {
         names.add_if_present(NameId::LICENSE_URL, &metadata.license_url);
         names.add_if_present(NameId::TYPOGRAPHIC_FAMILY_NAME, &metadata.family_name);
         names.add_if_present(NameId::TYPOGRAPHIC_SUBFAMILY_NAME, &metadata.style_name);
+        // A variable font names its instances' PostScript names after the
+        // family, as fontmake builds with gftools write them.
+        if !self.snapshot.ir_axes.is_empty()
+            && let Some(family) = metadata.family_name.as_deref()
+        {
+            names.add(
+                NameId::VARIATIONS_POSTSCRIPT_NAME_PREFIX,
+                postscript_safe(family),
+            );
+        }
+        let fontinfo = &self.snapshot.fontinfo;
+        let vendor_id = fontinfo.vendor_id.as_deref().unwrap_or(DEFAULT_VENDOR_ID);
 
         let ir_axes = Axes::from(self.snapshot.ir_axes.clone());
         let global_locations = self.global_locations(&ir_axes)?;
@@ -81,7 +94,7 @@ impl Work<Context, WorkId, Error> for StaticMetadataWork {
         }
         let mut static_metadata = StaticMetadata::new(
             self.snapshot.units_per_em,
-            names.build(DEFAULT_VENDOR_ID),
+            names.build(vendor_id),
             fvar_axes,
             named_instances,
             global_locations,
@@ -96,6 +109,22 @@ impl Work<Context, WorkId, Error> for StaticMetadataWork {
             .clone_from(&self.snapshot.feature_variations);
         static_metadata.misc.version_major = version_major;
         static_metadata.misc.version_minor = version_minor;
+        static_metadata.misc.selection_flags = fontinfo.selection_flags;
+        static_metadata.misc.gasp.clone_from(&fontinfo.gasp);
+        if let Ok(vendor) = Tag::new_checked(vendor_id.as_bytes()) {
+            static_metadata.misc.vendor_id = vendor;
+        }
+        // A mirrored component beside unmirrored parts runs against them;
+        // decomposed, fontc reverses what the mirror reversed.
+        if !self.snapshot.mixed_mirror_glyphs.is_empty() {
+            static_metadata.misc.decompose_components = Some(FilterScope::Include(
+                self.snapshot
+                    .mixed_mirror_glyphs
+                    .iter()
+                    .map(|name| name.as_str().into())
+                    .collect(),
+            ));
+        }
 
         let mut glyph_order = GlyphOrder::new();
         for glyph in &self.snapshot.glyphs {

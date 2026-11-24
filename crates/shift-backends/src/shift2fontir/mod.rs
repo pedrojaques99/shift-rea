@@ -11,6 +11,7 @@
 //! not create products implicitly.
 
 mod axes;
+mod fontinfo;
 mod glyph;
 mod glyph_axes;
 mod kerning;

@@ -66,7 +66,7 @@ pub(crate) enum Command {
     /// Inspect a SQLite .shift document without modifying it.
     Inspect(InspectArgs),
 
-    /// Compile a SQLite .shift document to a TrueType font.
+    /// Compile a .shift document or any source import reads to a TrueType font.
     Compile(CompileArgs),
 
     /// Export a SQLite .shift document as editable sources.
@@ -543,7 +543,8 @@ pub(crate) struct MutationArgs {
 
 #[derive(Debug, Parser)]
 pub(crate) struct CompileArgs {
-    /// Path to the canonical SQLite .shift document.
+    /// Path to a .shift document, or a UFO, Designspace, Glyphs, TTF, or OTF
+    /// source, which is read in memory without writing a .shift.
     #[arg(value_hint = ValueHint::FilePath)]
     pub path: PathBuf,
 

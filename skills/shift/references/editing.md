@@ -10,7 +10,7 @@ A font file opened directly is a read-only preview (`FontEditUnavailableError`).
 2. **One meaningful step per call.** Label it as Edit › Undo should show it ("Draw H and I", "Space lowercase"). The user undoes a whole step with Ctrl+Z, or you do with `shift.history.undo`.
 3. **Guard with the revision.** Pass the `fontRevision` you read as `ifFontRevision`, so a call fails with `FontChangedError` instead of overwriting a change the user made meanwhile.
 4. **Look at the result.** After an edit, `read.layers.render` returns an SVG with points and metrics, and `shift.capture` a PNG of the window. Check the shape, then fix or undo.
-5. **Check like a reviewer.** `shift.font.check({ windowId, glyphs: [{ name: "O" }] })` runs the engine's checks (the whole font without `glyphs`): interpolation compatibility between masters, contour direction, open or degenerate contours, **curves missing a point at their extremes (`O008`)**, **points a unit or two off a metric line (`O009`)**, invalid advances, kerning and swaps. Each finding names the glyph, master and contour. Fix every error and the warnings that are real before you report the glyph done.
+5. **Check like a reviewer.** `shift.font.check({ windowId, glyphs: [{ name: "O" }] })` runs the engine's checks (the whole font without `glyphs`): interpolation compatibility between masters, contour direction, open or degenerate contours, **curves missing a point at their extremes (`O008`)**, **points a unit or two off a metric line (`O009`)**, mirrored components beside unmirrored parts (`O010`), invalid advances, kerning and swaps. Each finding names the glyph, master and contour. Fix every error and the warnings that are real before you report the glyph done.
 
 ## New ids: placeholders
 

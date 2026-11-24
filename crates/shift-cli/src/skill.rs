@@ -25,11 +25,15 @@ const PRODUCT_VERSION: &str = env!("SHIFT_PRODUCT_VERSION");
 const SKILL_FILE: &str = "SKILL.md";
 
 /// Every file of `skills/shift`, by its path inside the skill directory.
-const FILES: [(&str, &str); 6] = [
+const FILES: [(&str, &str); 7] = [
     (SKILL_FILE, include_str!("../../../skills/shift/SKILL.md")),
     (
         "references/cli.md",
         include_str!("../../../skills/shift/references/cli.md"),
+    ),
+    (
+        "references/editing.md",
+        include_str!("../../../skills/shift/references/editing.md"),
     ),
     (
         "references/fonts.md",

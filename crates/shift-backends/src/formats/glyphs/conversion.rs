@@ -200,6 +200,13 @@ pub(crate) fn font_header(
     font.metadata_mut().version_major = Some(glyphs_font.version_major);
     font.metadata_mut().version_minor = i32::try_from(glyphs_font.version_minor).ok();
     font.metrics_mut().units_per_em = glyphs_font.units_per_em as f64;
+    // glyphsLib writes "Use Typo Metrics" as the UFO selection bit it sets.
+    if glyphs_font.custom_parameters.use_typo_metrics == Some(true) {
+        font.fontinfo_remainder_mut().set(
+            "openTypeOS2Selection".to_string(),
+            LibValue::Array(vec![LibValue::Integer(7)]),
+        );
+    }
     let skipped = glyphs_font
         .glyph_order
         .iter()

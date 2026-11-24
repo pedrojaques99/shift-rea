@@ -67,6 +67,9 @@ pub(super) fn check(font: &Font, glyph: &Glyph) -> Vec<Finding> {
         findings.extend(layer.off_metric());
 
         let is_default = default.is_some_and(|default| default.id() == source.id());
+        if is_default {
+            findings.extend(layer.mirrored());
+        }
         findings.extend(layer.resolved(encoded && is_default));
     }
     findings
@@ -198,6 +201,26 @@ impl LayerCheck<'_> {
                 .in_contour(index)
             })
             .collect()
+    }
+
+    /// Reports a mirrored component beside parts that aren't mirrored, whose
+    /// contours then run against theirs; once per glyph, from the default
+    /// master.
+    fn mirrored(&self) -> Option<Finding> {
+        if !self.layer.mixes_mirrored_components() {
+            return None;
+        }
+        let mirrored = self
+            .layer
+            .components_iter()
+            .find(|component| component.matrix().mirrors())?;
+        Some(self.at(
+            Check::MirroredComponent,
+            &format!(
+                "mirrors component '{}' beside parts that aren't mirrored, so its contours run the other way and overlaps cancel into holes in a composite; export decomposes it, other compilers may not",
+                mirrored.base_glyph_name()
+            ),
+        ))
     }
 
     /// Reports curves that bulge past both their ends, horizontally or
@@ -351,7 +374,13 @@ pub(super) fn extent<'a>(
 }
 
 /// Pairs of `(contour, container)` positions where a contour lies wholly
-/// inside its innermost container and winds the same way.
+/// inside filled ink and winds the way that ink does, so it adds nothing;
+/// `container` is its innermost container.
+///
+/// Whether the area around a contour is ink is the nonzero winding of every
+/// contour around it, not the direction of the innermost one: a contour in a
+/// counter, like the C inside the ring of a ©, sits where the winding is zero
+/// and draws ink whichever way it runs.
 ///
 /// A contour that crosses any other contour is an overlapping stroke, like an
 /// A's crossbar laid over its legs or bars drawn across a frame's counter,
@@ -365,12 +394,20 @@ fn filled_counters(outlines: &[Polygon]) -> Vec<(usize, usize)> {
 
     let mut filled = Vec::new();
     for index in (0..outlines.len()).filter(|index| usable(*index) && !crosses_another(*index)) {
-        let innermost = (0..outlines.len())
+        let containers = (0..outlines.len())
             .filter(|other| *other != index && usable(*other))
             .filter(|other| outlines[index].is_inside(&outlines[*other]))
+            .collect::<Vec<_>>();
+        let winding: i32 = containers
+            .iter()
+            .map(|container| if areas[*container] > 0.0 { 1 } else { -1 })
+            .sum();
+        let innermost = containers
+            .into_iter()
             .min_by(|left, right| areas[*left].abs().total_cmp(&areas[*right].abs()));
         if let Some(container) = innermost
-            && (areas[index] > 0.0) == (areas[container] > 0.0)
+            && winding != 0
+            && (areas[index] > 0.0) == (winding > 0)
         {
             filled.push((index, container));
         }
@@ -417,6 +454,34 @@ mod tests {
             [(1, 0)]
         );
         assert!(filled_counters(&[outer, rectangle(25.0, 75.0, false)]).is_empty());
+    }
+
+    #[test]
+    fn a_contour_inside_a_counter_draws_ink_either_way() {
+        // A © : a ring, and a letter inside its counter.
+        let ring = rectangle(0.0, 100.0, true);
+        let counter = rectangle(10.0, 90.0, false);
+
+        for letter_runs_counter_clockwise in [true, false] {
+            let letter = rectangle(30.0, 70.0, letter_runs_counter_clockwise);
+            assert!(
+                filled_counters(&[letter, ring.clone(), counter.clone()]).is_empty(),
+                "letter counter-clockwise: {letter_runs_counter_clockwise}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_contour_inside_ink_inside_a_counter_still_fills_in() {
+        let ring = rectangle(0.0, 100.0, true);
+        let counter = rectangle(10.0, 90.0, false);
+        let letter = rectangle(30.0, 70.0, true);
+        let inside_letter = rectangle(40.0, 60.0, true);
+
+        assert_eq!(
+            filled_counters(&[ring, counter, letter, inside_letter]),
+            [(3, 2)]
+        );
     }
 
     #[test]

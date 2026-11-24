@@ -158,6 +158,10 @@ src/
 
 **Variable metadata:** Independent axis mappings compile to OpenType `avar` version 1. Axis labels compile to `STAT` axis values, including ranges, linked values, and elidable flags. Only explicit Shift `NamedInstance` values compile to `fvar`; source names are never inferred as products. The adapter maps complete external instance locations to fontir and lets compiler-only defaults and name IDs remain compiler concerns. Cross-axis mappings remain authored in Shift but direct TTF export rejects them until the compiler stack supports `avar` version 2.
 
+**Fontinfo tables:** `shift2fontir::fontinfo` reads what a UFO `fontinfo.plist` sets beyond Shift's model, from the font's fontinfo remainder, as ufo2fontir does: `OS/2.fsSelection` is `openTypeOS2Selection`'s bits (so `USE_TYPO_METRICS` survives; a Glyphs source's "Use Typo Metrics" imports as that bit) with `REGULAR`, `BOLD` or `ITALIC` from `styleMapStyleName`, else the preferred subfamily or style name, else `REGULAR`; `achVendID` is `openTypeOS2VendorID`; `gasp` is `openTypeGaspRangeRecords`, or one range up to 65535 ppem with every behavior on. A variable font gets name ID 25, the PostScript-safe family name. An unhinted binary (`FontExporter::hinted` without ttfautohint, and every variable font) gets gftools' minimal `prep`, which turns on dropout control.
+
+**Mirrored components:** a glyph whose master mirrors a component beside parts that aren't mirrored (`GlyphLayer::mixes_mirrored_components`) is listed in fontir's `decompose_components` filter scope. Kept as a composite, the mirrored contours would run against the rest and overlaps would cancel into holes; fontc's decomposition reverses what the mirror reversed. Glyphs whose parts all mirror stay composites.
+
 ## Workflow recipes
 
 ### Add a new read-only backend
