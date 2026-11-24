@@ -43,6 +43,52 @@ export interface MetricPositionGuide {
   readonly metric: MetricKind;
   readonly x: number;
   readonly y: number;
+  /** Whether the line is the metric's overshoot edge (position plus overshoot), not the metric itself. */
+  readonly overshoot?: boolean;
+}
+
+/** Vertical line of the glyph's advance box: its left edge, its middle, or its right edge. */
+export type AdvanceEdge = "left" | "centre" | "right";
+
+/** Vertical advance-box line that one snapped position, at glyph-local `(x, y)`, now sits on. */
+export interface AdvancePositionGuide {
+  readonly kind: "advance";
+  readonly edge: AdvanceEdge;
+  readonly x: number;
+  readonly y: number;
+  /** Bottom of the line as drawn, usually the descender. */
+  readonly minY: number;
+  /** Top of the line as drawn, usually the ascender. */
+  readonly maxY: number;
+}
+
+/**
+ * A distance, along one axis, from a stationary point to a moving position that
+ * now equals a distance already in the glyph, such as a stem's width.
+ */
+export interface DistancePositionGuide {
+  readonly kind: "distance";
+  /** Axis the distance is measured along. */
+  readonly axis: "x" | "y";
+  /** Stationary end of the measured distance. */
+  readonly from: Point2D;
+  /** The moving position, at its snapped place. */
+  readonly to: Point2D;
+  /** The matched distance in font units, never negative. */
+  readonly distance: number;
+  /** Ends of the stationary pair whose distance the move matches. */
+  readonly reference: readonly [Point2D, Point2D];
+}
+
+/** A moving position that now mirrors a stationary point about the advance's vertical centre. */
+export interface SymmetryPositionGuide {
+  readonly kind: "symmetry";
+  /** The stationary point mirrored. */
+  readonly mirror: Point2D;
+  /** The moving position, at its snapped place. */
+  readonly point: Point2D;
+  /** Glyph-local x of the axis of symmetry. */
+  readonly centre: number;
 }
 
 /** Axis-aligned line from a stationary point to a moving position that now shares its x or y. */
@@ -62,7 +108,10 @@ export interface GridPositionGuide {
 export type PositionGuide =
   | DirectionPositionGuide
   | MetricPositionGuide
+  | AdvancePositionGuide
   | AlignmentPositionGuide
+  | DistancePositionGuide
+  | SymmetryPositionGuide
   | GridPositionGuide;
 
 /** Correction along one axis; its distance is the absolute offset. */

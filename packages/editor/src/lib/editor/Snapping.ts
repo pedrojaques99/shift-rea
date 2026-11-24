@@ -3,7 +3,16 @@ import { Point } from "@shift/glyph-state";
 import type { PointId } from "@shift/types";
 import type { Font } from "../model/Font";
 import type { GlyphLayer } from "../model/Glyph";
-import { GridSnap, MetricSnap, PointAlignmentSnap, SnapSet } from "../model/positions";
+import {
+  AdvanceSnap,
+  EqualDistanceSnap,
+  GridSnap,
+  MetricSnap,
+  PointAlignmentSnap,
+  SnapSet,
+  SymmetrySnap,
+  overshootMetricLines,
+} from "../model/positions";
 import type { Grid } from "./Grid";
 import { sceneVector, screenVector } from "./spaces";
 import type { LocalBounds, LocalVector, SceneVector, ScreenVector } from "../../types/coordinates";
@@ -12,7 +21,7 @@ import type { PositionCondition, PositionSnapProvider } from "../../types/positi
 
 /** Editor state snapping reads when it builds a snap set. */
 export interface SnappingContext {
-  readonly font: Pick<Font, "metricsForSource">;
+  readonly font: Pick<Font, "metricsForSource" | "metricDefinitions">;
   /** The canvas grid; its intersections are snap targets while its snapping is on. */
   readonly grid: Pick<Grid, "settings">;
   /** Snap distance at the current zoom in the units of `node`. */
@@ -43,9 +52,11 @@ export interface LayerSnapOptions {
  *
  * @remarks
  * Tools ask for a snap set per gesture or preview frame rather than composing providers
- * themselves, so every tool snaps to the same targets: the layer's source metrics and the
- * on-curve points on screen, within the pointer hit radius, and the grid's intersections
- * while snapping to the grid is on.
+ * themselves, so every tool snaps to the same targets, within the pointer hit radius: the
+ * layer's source metrics and their overshoot edges; the advance box's edges and centre;
+ * the on-curve points on screen, by alignment, by mirror image about the centre, and by
+ * equal distance to a neighbour (a stem as wide as another); and the grid's
+ * intersections while snapping to the grid is on.
  */
 export class Snapping {
   readonly #context: SnappingContext;
@@ -73,10 +84,23 @@ export class Snapping {
     const targets = onScreenOnCurve.filter((point) => !excluding?.has(point.id));
     const marked = onScreenOnCurve.filter((point) => marking?.has(point.id));
 
+    const metrics = font.metricsForSource(layer.sourceId);
+    const metricSnap = MetricSnap.standard(metrics, hitRadius).including(
+      overshootMetricLines(metrics, font.metricDefinitions),
+    );
     const providers: PositionSnapProvider[] = [
-      acrossAdvance(MetricSnap.standard(font.metricsForSource(layer.sourceId), hitRadius), layer),
+      acrossAdvance(metricSnap, layer),
       PointAlignmentSnap.to(targets, hitRadius).marking(marked),
+      EqualDistanceSnap.among(targets, hitRadius),
     ];
+    const advance = layer.xAdvance;
+    if (advance > 0) {
+      const span = { minY: metrics.descender, maxY: metrics.ascender };
+      providers.push(
+        AdvanceSnap.of(advance, span, hitRadius),
+        SymmetrySnap.about(advance / 2, targets, hitRadius),
+      );
+    }
     const grid = this.toGrid(node);
     if (grid) providers.push(grid);
 

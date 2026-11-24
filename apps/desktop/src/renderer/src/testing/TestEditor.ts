@@ -86,6 +86,7 @@ import { createWorkspaceStack, type WorkspaceStack } from "./workspaceStack";
 import type {
   GlyphNode,
   GlyphOutlineTarget,
+  DragReadout,
   PositionGuide,
   SourceSelectionMode,
   TextRunNode,
@@ -1641,6 +1642,10 @@ export class TestEditor extends Editor implements EditorTestSurface {
 
   drawnSnapGuides(): readonly PositionGuide[] {
     return this.#reads.editor.drawnSnapGuides();
+  }
+
+  drawnDragReadout(): DragReadout | null {
+    return this.#reads.editor.drawnDragReadout();
   }
 
   drawnSnapCrossings(): readonly Point2D[] {

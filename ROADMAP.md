@@ -460,14 +460,17 @@ These are allowed to jump around when energy is high, but they should not silent
 **Metric Snapping**
 
 - [x] Snap to baseline, x-height, cap height, ascender, descender
-- [ ] Snap to sidebearings (0, xAdvance)
+- [x] Snap to sidebearings (0, xAdvance) and the advance centre
+- [x] Snap to metric overshoot zones
 - [x] Visual indicator when snapped
 
 **Point Snapping**
 
 - [x] Snap to other points in glyph
-- [ ] Snap to horizontal/vertical alignment
-- [ ] Smart guides (temporary alignment lines)
+- [x] Snap to horizontal/vertical alignment
+- [x] Smart guides (temporary alignment lines)
+- [x] Letter-architecture snaps: equal stem/counter distances (with measured values) and symmetry about the advance centre
+- [x] Live drag readout beside the pointer (Δx/Δy, handle length and angle, resize width × height, rotation angle)
 
 **Angle Constraint**
 

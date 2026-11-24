@@ -39,7 +39,8 @@ describe("a glyph edited in text a tenth of the font's size", () => {
 
     await editor.dragFrom({ x: 300, y: 300 }, { x: 300, y: near });
 
-    expect(await editor.point(middle)).toMatchObject({ x: 300, y: xHeight });
+    // x is free to snap too: at this radius 300 lies within reach of the advance's centre.
+    expect(await editor.point(middle)).toMatchObject({ y: xHeight });
   });
 
   it("closes a contour when its end drops within the on-screen distance of its start", async () => {

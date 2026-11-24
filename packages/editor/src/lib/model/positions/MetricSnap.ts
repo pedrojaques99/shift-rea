@@ -1,5 +1,5 @@
 import type { Point2D } from "@shift/geo";
-import type { SourceMetrics } from "@shift/types";
+import type { MetricDefinition, SourceMetrics } from "@shift/types";
 import type {
   MetricPositionGuide,
   PositionCondition,
@@ -41,6 +41,37 @@ export function standardMetricLines(metrics: SourceMetrics): MetricLine[] {
   return uniqueMetricLines(lines);
 }
 
+/**
+ * Lists the overshoot edges of a source's standard metrics: each metric's
+ * position plus its authored overshoot, where the overshoot is not zero.
+ *
+ * @remarks
+ * Custom metrics are left out, like {@link standardMetricLines} leaves them out.
+ *
+ * @param definitions - The font's metric definitions, which give each value's kind.
+ */
+export function overshootMetricLines(
+  metrics: SourceMetrics,
+  definitions: readonly MetricDefinition[],
+): MetricLine[] {
+  const lines: MetricLine[] = [];
+  for (const definition of definitions) {
+    if (definition.kind === "custom") continue;
+
+    const value = metrics.metricValues[definition.id];
+    if (!value || value.overshoot === 0) continue;
+
+    lines.push({
+      kind: "metric",
+      metric: definition.kind,
+      y: value.position + value.overshoot,
+      overshoot: true,
+    });
+  }
+
+  return lines;
+}
+
 /** Snaps a position's Y coordinate to standard source-specific horizontal metrics. */
 export class MetricSnap implements PositionSnapProvider {
   readonly #guides: readonly MetricLine[];
@@ -80,6 +111,17 @@ export class MetricSnap implements PositionSnapProvider {
    */
   across(extent: MetricExtent): MetricSnap {
     return new MetricSnap(this.#guides, this.#radius, { when: this.#when }, { ...extent });
+  }
+
+  /**
+   * Adds further lines to snap to, such as overshoot edges; a line at a height
+   * already present is left out.
+   *
+   * @returns A new snap with the same radius, condition and extent.
+   */
+  including(lines: readonly MetricLine[]): MetricSnap {
+    const guides = uniqueMetricLines([...this.#guides, ...lines]);
+    return new MetricSnap(guides, this.#radius, { when: this.#when }, this.#extent);
   }
 
   snap(point: Point2D): PositionSnap | null {

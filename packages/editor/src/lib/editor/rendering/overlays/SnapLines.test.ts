@@ -76,3 +76,55 @@ describe("snap feedback crosses the positions its guide lines pass through", () 
     ]);
   });
 });
+
+describe("snap feedback draws the letter-architecture guides", () => {
+  it("measures a matched distance and every distance it equals", () => {
+    const feedback = snapFeedback([
+      {
+        kind: "distance",
+        axis: "x",
+        from: { x: 400, y: 398 },
+        to: { x: 480, y: 400 },
+        distance: 80,
+        reference: [
+          { x: 100, y: 0 },
+          { x: 180, y: 0 },
+        ],
+      },
+    ]);
+
+    // The stationary end is measured on the moving position's row.
+    expect(feedback.measures).toEqual([
+      { from: { x: 400, y: 400 }, to: { x: 480, y: 400 }, distance: 80 },
+      { from: { x: 100, y: 0 }, to: { x: 180, y: 0 }, distance: 80 },
+    ]);
+  });
+
+  it("draws an advance line across its span and crosses the snapped position", () => {
+    const feedback = snapFeedback([
+      { kind: "advance", edge: "centre", x: 300, y: 250, minY: -200, maxY: 800 },
+    ]);
+
+    expect(feedback).toMatchObject({
+      lines: [
+        [
+          { x: 300, y: -200 },
+          { x: 300, y: 800 },
+        ],
+      ],
+      markers: [{ x: 300, y: 250 }],
+    });
+  });
+
+  it("joins a mirrored pair and crosses it on the centre line", () => {
+    const feedback = snapFeedback([
+      { kind: "symmetry", mirror: { x: 150, y: 250 }, point: { x: 450, y: 250 }, centre: 300 },
+    ]);
+
+    expect(feedback.markers).toEqual([
+      { x: 150, y: 250 },
+      { x: 450, y: 250 },
+      { x: 300, y: 250 },
+    ]);
+  });
+});

@@ -14,6 +14,7 @@ import {
 } from "../../signals/signal";
 import type { CursorType } from "../../../types/editor";
 import type { PositionGuide } from "../../../types/positionEdit";
+import type { DragReadout } from "../../../types/dragReadout";
 
 const NO_GUIDES: readonly PositionGuide[] = [];
 const NO_CROSSINGS: readonly Point2D[] = [];
@@ -107,6 +108,15 @@ export abstract class BaseTool<S extends ToolState, TTool = unknown, Settings = 
    */
   get snapCrossings(): readonly Point2D[] {
     return NO_CROSSINGS;
+  }
+
+  /**
+   * The live value of the drag in flight (how far it moved, a handle's length
+   * and angle, a resized width and height), drawn beside the pointer; null
+   * when no drag is in flight or it has no value to show.
+   */
+  get dragReadout(): DragReadout | null {
+    return null;
   }
 
   /** Return a state to short-circuit the behavior loop, or null to continue. */

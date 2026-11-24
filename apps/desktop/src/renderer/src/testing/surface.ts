@@ -29,6 +29,7 @@ import type {
 import type {
   GlyphOutlineTarget,
   NewGlyph,
+  DragReadout,
   PositionGuide,
   SourceSelectionMode,
 } from "@shift/editor/types";
@@ -616,6 +617,8 @@ export interface EditorTestSurface extends EditorReads, EditorActions, FontBuild
   drawnOutlineTargets(): readonly GlyphOutlineTarget[];
   /** The snap guides the active tool draws for the gesture in flight, in glyph units. */
   drawnSnapGuides(): readonly PositionGuide[];
+  /** The live value the active tool shows beside the pointer for the drag in flight; null without one. */
+  drawnDragReadout(): DragReadout | null;
   /**
    * Returns where the active tool's snap feedback draws a cross for the gesture in flight.
    *

@@ -101,9 +101,14 @@ function settleGuide(guide: PositionGuide, shift: Point2D): PositionGuide {
   switch (guide.kind) {
     case "metric":
       return { ...guide, x: guide.x + shift.x };
+    case "advance":
+      return { ...guide, y: guide.y + shift.y };
     case "alignment":
     case "grid":
+    case "symmetry":
       return { ...guide, point: Vec2.add(guide.point, shift) };
+    case "distance":
+      return { ...guide, to: Vec2.add(guide.to, shift) };
     case "direction":
       return guide;
   }

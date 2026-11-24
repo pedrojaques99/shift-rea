@@ -1,7 +1,9 @@
+export { AdvanceSnap } from "./AdvanceSnap";
 export { AngleSnap } from "./AngleSnap";
 export { DirectionSnap } from "./DirectionSnap";
+export { EqualDistanceSnap } from "./EqualDistanceSnap";
 export { GridSnap, MIN_GRID_LINE_GAP_PX, visibleGridStep } from "./GridSnap";
-export { MetricSnap, standardMetricLines } from "./MetricSnap";
+export { MetricSnap, overshootMetricLines, standardMetricLines } from "./MetricSnap";
 export { MoveEdit } from "./MoveEdit";
 export { MovementAxis } from "./MovementAxis";
 export { PointAlignmentSnap } from "./PointAlignmentSnap";
@@ -13,3 +15,4 @@ export { PositionTargets } from "./PositionTargets";
 export { RotateEdit } from "./RotateEdit";
 export { ScaleEdit } from "./ScaleEdit";
 export { SnapSet, settleSnap } from "./SnapSet";
+export { SymmetrySnap } from "./SymmetrySnap";

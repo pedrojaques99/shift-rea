@@ -25,6 +25,10 @@ import type { PositionGuide } from "../../../types/positionEdit";
 import { objectIsKindOf, type ShiftObject } from "../../../types/object";
 import type { Canvas } from "../../editor/rendering/Canvas";
 import { SnapLines } from "../../editor/rendering/overlays/SnapLines";
+import { DragReadoutLabel } from "../../editor/rendering/overlays/DragReadoutLabel";
+import { scenePoint } from "../../editor/spaces";
+import type { DragReadout } from "../../../types/dragReadout";
+import { selectDragReadout } from "./dragReadout";
 import { SelectBoundingBox } from "./BoundingBox";
 import { SelectMarquee } from "./Marquee";
 import { SelectUpgradePreview } from "./SelectUpgradePreview";
@@ -38,6 +42,7 @@ export class Select extends BaseTool<SelectState, Select> {
   readonly marquee = new SelectMarquee(this);
   readonly upgradePreview = new SelectUpgradePreview(this);
   readonly #snapLines = new SnapLines();
+  readonly #readoutLabel = new DragReadoutLabel();
 
   readonly behaviors: SelectBehavior[] = [
     new ToggleSmooth(),
@@ -79,6 +84,11 @@ export class Select extends BaseTool<SelectState, Select> {
     const ids = this.editor.selection.ids;
     const selection = this.editor.positionSelection(ids);
     return selection ? this.#crossings(ids, selection.layer) : [];
+  }
+
+  /** The live value of the move, resize or rotation in flight. */
+  override get dragReadout(): DragReadout | null {
+    return selectDragReadout(this.editor, this.getState());
   }
 
   #crossings(ids: readonly SelectableId[], layer: GlyphLayer): Point2D[] {
@@ -195,7 +205,16 @@ export class Select extends BaseTool<SelectState, Select> {
 
     this.marquee.draw(canvas);
     this.upgradePreview.draw(canvas);
+    this.#drawSnapLines(canvas);
 
+    const readout = this.dragReadout;
+    if (readout) {
+      const pointer = this.editor.sceneToScreen(scenePoint(readout.at.x, readout.at.y));
+      this.#readoutLabel.draw(canvas, readout.reading, pointer);
+    }
+  }
+
+  #drawSnapLines(canvas: Canvas): void {
     const guides = this.snapGuides;
     if (guides.length === 0) return;
 

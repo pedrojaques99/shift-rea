@@ -52,6 +52,8 @@ export interface ResizeDrag {
   /** Scene-space pivot chosen for the latest resize sample. */
   anchorPoint: Point2D;
   uniformScale: boolean;
+  /** The latest scale factors on each axis; negative where flipped. */
+  scale: Point2D;
   /** Whether the latest X scale is negative; zero is unflipped. */
   flipX: boolean;
   /** Whether the latest Y scale is negative; zero is unflipped. */

@@ -19,7 +19,7 @@ import type { Point2D } from "@shift/geo";
 import { snapFeedback } from "@shift/editor/rendering";
 import type { ScenePoint } from "@shift/editor/spaces";
 import { isGroupSide, type KerningPairPosition } from "@shift/editor/model";
-import type { GlyphOutlineTarget, PositionGuide } from "@shift/editor/types";
+import type { DragReadout, GlyphOutlineTarget, PositionGuide } from "@shift/editor/types";
 import {
   ascending,
   comparing,
@@ -303,6 +303,14 @@ export class ShiftEditorReader {
    */
   drawnSnapGuides(): PositionGuide[] {
     return [...(this.#editor.toolManager.activeTool?.snapGuides ?? [])];
+  }
+
+  /**
+   * The live value the active tool shows beside the pointer for the drag in
+   * flight; null when no drag is in flight.
+   */
+  drawnDragReadout(): DragReadout | null {
+    return this.#editor.toolManager.activeTool?.dragReadout ?? null;
   }
 
   /**

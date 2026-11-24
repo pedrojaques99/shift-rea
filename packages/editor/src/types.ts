@@ -52,6 +52,7 @@ export { NUDGES_VALUES, nudgeMagnitude, type NudgeMagnitude } from "./types/nudg
 export { currentSelectionId, objectIsKindOf } from "./types/object";
 export type { ListSelectionMode } from "./types/listSelection";
 export type { PositionGuide, PositionSelection } from "./types/positionEdit";
+export type { DragReadout, DragValue } from "./types/dragReadout";
 export type { ShiftEditorRecord } from "./types/records";
 export type { SourceSelectionMode } from "./types/sourceSelection";
 export type { StoreChange } from "./types/store";

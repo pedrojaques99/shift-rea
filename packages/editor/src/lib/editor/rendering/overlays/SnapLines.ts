@@ -1,7 +1,12 @@
 import { Vec2, type Point2D } from "@shift/geo";
 import { ascending, comparing } from "@shift/types";
-import type { MetricPositionGuide, PositionGuide } from "../../../../types/positionEdit";
-import type { Canvas } from "../Canvas";
+import type {
+  DistancePositionGuide,
+  MetricPositionGuide,
+  PositionGuide,
+} from "../../../../types/positionEdit";
+import type { Canvas, ScreenCanvas } from "../Canvas";
+import { drawValuePill, formatUnits } from "./valuePill";
 
 /** Draws snap feedback as solid lines with screen-sized crosses on snapped positions. */
 export class SnapLines {
@@ -11,8 +16,12 @@ export class SnapLines {
    * @remarks
    * Direction guides draw from pivot to target, and alignment guides from the
    * stationary point to the aligned position. Metric guides on the same line
-   * draw one span across every snapped position on it. Grid guides draw only
-   * a cross on the snapped position.
+   * draw one span across every snapped position on it, and advance guides
+   * their whole vertical line. Distance guides draw the matched distance and
+   * every distance it equals as measurements: a line with end ticks and its
+   * value in a pill. Symmetry guides draw from the mirrored point to the
+   * snapped position, crossed on the centre line. Grid guides draw only a
+   * cross on the snapped position.
    *
    * @param canvas - Canvas already transformed into the units the guides are measured in.
    * @param guides - Preview feedback for one frame.
@@ -32,8 +41,44 @@ export class SnapLines {
         screen.line(Vec2.sub(cross, diagonal), Vec2.add(cross, diagonal), color, widthPx);
         screen.line(Vec2.sub(cross, antiDiagonal), Vec2.add(cross, antiDiagonal), color, widthPx);
       }
+      for (const measure of feedback.measures) {
+        drawMeasure(
+          screen,
+          project.point(measure.from),
+          project.point(measure.to),
+          measure.distance,
+        );
+      }
     });
   }
+}
+
+/** Draws a measurement in screen pixels: its line, a tick across each end, and its value. */
+function drawMeasure(screen: ScreenCanvas, from: Point2D, to: Point2D, distance: number): void {
+  const { color, widthPx, crossSizePx, labelText, labelFont } = screen.theme.snap;
+  screen.line(from, to, color, widthPx);
+
+  const along = Vec2.sub(to, from);
+  const length = Vec2.len(along);
+  if (length === 0) return;
+
+  const tick = Vec2.scale({ x: -along.y / length, y: along.x / length }, crossSizePx * 1.5);
+  for (const end of [from, to])
+    screen.line(Vec2.sub(end, tick), Vec2.add(end, tick), color, widthPx);
+
+  drawValuePill(screen, Vec2.midpoint(from, to), formatUnits(distance), {
+    fill: color,
+    text: labelText,
+    font: labelFont,
+  });
+}
+
+/** A measured distance a snap matched, between two positions in the guides' units. */
+export interface SnapMeasure {
+  readonly from: Point2D;
+  readonly to: Point2D;
+  /** The distance shown, in font units. */
+  readonly distance: number;
 }
 
 /** What one frame's snap feedback draws, in the units the guides are measured in. */
@@ -46,6 +91,8 @@ export interface SnapFeedback {
    * crossings on its line), a repeat keeping its first place.
    */
   readonly markers: readonly Point2D[];
+  /** Each distinct measurement once: the matched distance and the distances it equals. */
+  readonly measures: readonly SnapMeasure[];
 }
 
 /**
@@ -94,6 +141,34 @@ export function snapFeedback(
     addCrossings(guide.target, guide.point);
   }
 
+  for (const guide of guides) {
+    if (guide.kind !== "advance") continue;
+
+    addLine({ x: guide.x, y: guide.minY }, { x: guide.x, y: guide.maxY });
+    addMarker({ x: guide.x, y: guide.y });
+  }
+
+  for (const guide of guides) {
+    if (guide.kind !== "symmetry") continue;
+
+    addLine(guide.mirror, guide.point);
+    addMarker(guide.mirror);
+    addMarker(guide.point);
+    addMarker({ x: guide.centre, y: (guide.mirror.y + guide.point.y) / 2 });
+  }
+
+  const measures = new Map<string, SnapMeasure>();
+  const addMeasure = (from: Point2D, to: Point2D, distance: number) => {
+    const key = lineKey(from, to);
+    if (!measures.has(key)) measures.set(key, { from, to, distance });
+  };
+  for (const guide of guides) {
+    if (guide.kind !== "distance") continue;
+
+    addMeasure(measuredFrom(guide), guide.to, guide.distance);
+    addMeasure(guide.reference[0], guide.reference[1], guide.distance);
+  }
+
   for (const span of metricSpans(guides)) {
     if (span.from.x !== span.to.x) addLine(span.from, span.to);
     for (const point of span.points) addMarker(point);
@@ -105,7 +180,18 @@ export function snapFeedback(
     if (guide.kind === "grid") addMarker(guide.point);
   }
 
-  return { lines: [...lines.values()], markers: [...markers.values()] };
+  return {
+    lines: [...lines.values()],
+    markers: [...markers.values()],
+    measures: [...measures.values()],
+  };
+}
+
+/** The stationary end of a distance guide, moved onto the snapped position's row or column. */
+function measuredFrom(guide: DistancePositionGuide): Point2D {
+  return guide.axis === "x"
+    ? { x: guide.from.x, y: guide.to.y }
+    : { x: guide.to.x, y: guide.from.y };
 }
 
 function lineKey(from: Point2D, to: Point2D): string {

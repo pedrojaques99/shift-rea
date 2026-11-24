@@ -75,7 +75,19 @@ export interface EditorRenderTheme {
     first: HandleStateStyles<FirstHandleStyle>;
     last: HandleStateStyles;
   };
-  snap: { color: string; widthPx: number; crossSizePx: number };
+  /**
+   * Snap guides; `labelText` and `labelFont` are for the value pills of
+   * matched distances, filled in the guide colour.
+   */
+  snap: {
+    color: string;
+    widthPx: number;
+    crossSizePx: number;
+    labelText: string;
+    labelFont: string;
+  };
+  /** The live value of a drag (move, handle, resize, rotate) in a quiet pill beside the pointer. */
+  dragReadout: { fill: string; text: string; font: string; offsetPx: number };
   segment: {
     hoverColor: string;
     selectedColor: string;
@@ -126,6 +138,8 @@ export interface EditorRenderTheme {
 const hover = (alpha: number) => `rgba(255, 255, 255, ${alpha})`;
 
 const INTERPOLATED_GREY = "#8A8A8A";
+/** The UI's mono face, for numbers drawn on the canvas. */
+const MONO_FONT = `"JetBrains Mono", ui-monospace, monospace`;
 
 const DEFAULT_EDITOR_RENDER_THEME: EditorRenderTheme = {
   cursor: { color: "#0C92F4", widthPx: 1.25 },
@@ -262,7 +276,19 @@ const DEFAULT_EDITOR_RENDER_THEME: EditorRenderTheme = {
       selected: { fill: "#ffffff", stroke: "#0C92F4", size: 12, lineWidth: 2 },
     },
   },
-  snap: { color: "#ff3b30", widthPx: 0.5, crossSizePx: 2 },
+  snap: {
+    color: "#ff3b30",
+    widthPx: 0.5,
+    crossSizePx: 2,
+    labelText: "#ffffff",
+    labelFont: `500 10px ${MONO_FONT}`,
+  },
+  dragReadout: {
+    fill: "rgba(23, 23, 23, 0.82)",
+    text: "#ffffff",
+    font: `500 10px ${MONO_FONT}`,
+    offsetPx: 14,
+  },
   segment: {
     hoverColor: "#1886D7",
     selectedColor: "#1886D7",
@@ -447,6 +473,8 @@ export function readEditorRenderTheme(
   theme.handle.last.selected.stroke = primaryStroke;
 
   theme.snap.color = readColor("--editor-snap-color", theme.snap.color);
+  theme.dragReadout.fill = readColor("--editor-drag-readout-fill", theme.dragReadout.fill);
+  theme.dragReadout.text = readColor("--editor-drag-readout-text", theme.dragReadout.text);
   theme.segment.hoverColor = readColor("--editor-segment-hover-color", theme.segment.hoverColor);
   theme.segment.selectedColor = readColor(
     "--editor-segment-selected-color",
