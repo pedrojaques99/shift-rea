@@ -11,6 +11,8 @@ import {
 } from "@shift/ui";
 import type { SourceId } from "@shift/types";
 import { useSources } from "@/hooks/useSources";
+import { useAxes } from "@/hooks/useAxes";
+import { sourceLabel } from "@/lib/variation/sourceLabel";
 import { useActiveSourceId } from "@/hooks/useActiveSourceId";
 import { useEditingSourceIds } from "@/hooks/useEditingSourceIds";
 import { useEditor } from "@/workspace/WorkspaceContext";
@@ -25,6 +27,7 @@ import VerticalElipsis from "@/assets/general/vertical-ellipsis.svg";
 
 export const Sources = ({ canAuthor, outlineControls }: SourcesProps) => {
   const sources = useSources();
+  const axes = useAxes();
   const activeSourceId = useActiveSourceId();
   const editingSourceIds = useEditingSourceIds();
   const editor = useEditor();
@@ -98,7 +101,15 @@ export const Sources = ({ canAuthor, outlineControls }: SourcesProps) => {
               </>
             }
           >
-            <span className="min-w-0 flex-1 truncate text-left">{source.name}</span>
+            <Tooltip content={source.name}>
+              <span className="min-w-0 flex-1 truncate text-left">
+                {sourceLabel(
+                  source.name,
+                  editor.font.externalLocationForSource(source.id) ?? new Map(),
+                  axes,
+                )}
+              </span>
+            </Tooltip>
           </SidebarActionRow>
         );
       })}
