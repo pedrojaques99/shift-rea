@@ -1894,7 +1894,7 @@ export class TestEditor extends Editor implements EditorTestSurface {
     this.destroy();
     this.#stack.dispose();
     for (const directory of this.#temporaryDirectories) {
-      rmSync(directory, { recursive: true, force: true });
+      removeTemporaryDirectory(directory);
     }
   }
 
@@ -1960,4 +1960,18 @@ function keyEvent(key: string, options?: Partial<typeof DEFAULT_MODIFIERS>): Key
     ctrlKey: false,
     preventDefault: () => {},
   } as KeyboardEvent;
+}
+
+/**
+ * Removes a test's temporary folder. Windows refuses while the native store
+ * still holds a file in it open; the folder is in the temp directory, so it is
+ * left for the system to clear rather than failing a test that passed.
+ */
+function removeTemporaryDirectory(directory: string): void {
+  try {
+    rmSync(directory, { recursive: true, force: true });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "EPERM" && code !== "EBUSY") throw error;
+  }
 }
