@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -13,7 +13,11 @@ import {
 } from "@shift/editor/variation";
 import type { GlyphName } from "@shift/types";
 import { FONTS } from "@/testing/fontFixture";
-import { createWorkspaceStack, openPreviewStack } from "@/testing/workspaceStack";
+import {
+  createWorkspaceStack,
+  openPreviewStack,
+  removeTemporaryRoot,
+} from "@/testing/workspaceStack";
 
 /** A variable TrueType font with a weight axis, compiled deltas and no authored sources. */
 const VARIABLE_TTF = resolve(
@@ -52,7 +56,7 @@ async function savedDocument(sourcePath: string): Promise<Font> {
   opened.push(() => imported.dispose());
   await imported.openWorkspace(sourcePath);
   const directory = mkdtempSync(join(tmpdir(), "shift-preview-saved-"));
-  opened.push(() => rmSync(directory, { recursive: true, force: true }));
+  opened.push(() => removeTemporaryRoot(directory));
   const documentPath = join(directory, "Saved.shift");
   await imported.editCoordinator.save(documentPath);
 

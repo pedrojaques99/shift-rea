@@ -146,9 +146,27 @@ function startWorkspaceHost(): InProcessHost {
     },
     dispose(): void {
       shellChannel.dispose();
-      rmSync(documentsRoot, { recursive: true, force: true });
+      removeTemporaryRoot(documentsRoot);
     },
   };
+}
+
+/**
+ * Removes a test's temporary documents root.
+ *
+ * @remarks
+ * On Windows the in-process host can still hold the document's SQLite file when a sync
+ * `dispose` runs, and Windows refuses to delete an open file (EPERM/EBUSY) where macOS and
+ * Linux allow it. That leftover is in the OS temp directory, so it is skipped there only.
+ */
+export function removeTemporaryRoot(root: string): void {
+  try {
+    rmSync(root, { recursive: true, force: true });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    const lockedOnWindows = process.platform === "win32" && (code === "EPERM" || code === "EBUSY");
+    if (!lockedOnWindows) throw error;
+  }
 }
 
 /** A preview window's font over the real utility and preload, as the preview runtime opens it. */
