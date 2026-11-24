@@ -24,7 +24,7 @@ import { formatAxisValue, parseAxisText } from "./axisSliderText";
  * slider: drag it, click to type, double-click for the default), and in a
  * workspace a ⋮ menu to edit, reset or delete the axis.
  */
-export const AxesPanel = () => {
+export const AxesPanel = ({ actions = true }: { readonly actions?: boolean }) => {
   const session = useFontSession();
   const [location, setExternalLocation] = useExternalLocation();
   const settings = useSettingsNavigation();
@@ -35,7 +35,7 @@ export const AxesPanel = () => {
   if (axes.length === 0) return <p className="pl-2 text-ui text-muted">No varying axes</p>;
 
   return (
-    <div className="flex flex-col gap-1 pl-2">
+    <div className={actions ? "flex flex-col gap-1 pl-2" : "flex flex-col gap-1"}>
       {axes.map((axis) => {
         const value = axisValue(location, axis);
         const setValue = (next: number) =>
@@ -54,7 +54,7 @@ export const AxesPanel = () => {
               parse={(text) => parseAxisText(text, value)}
               onValueChange={setValue}
             />
-            {session.mode === "workspace" ? (
+            {actions && session.mode === "workspace" ? (
               <AxisActionsMenu
                 axis={axis}
                 onEdit={() => settings.open({ category: "axes", axisId: axis.id })}

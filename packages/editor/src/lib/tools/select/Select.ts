@@ -15,6 +15,7 @@ import {
   SelectHover,
   SegmentDoubleClick,
   NodeDoubleClick,
+  EmptyDoubleClick,
   RefuseReadOnlyEdit,
 } from "./behaviors";
 import type { Point2D } from "@shift/geo";
@@ -48,6 +49,7 @@ export class Select extends BaseTool<SelectState, Select> {
     new ToggleSmooth(),
     new SegmentDoubleClick(),
     new NodeDoubleClick(),
+    new EmptyDoubleClick(),
     new UpgradeSegment(),
     new Selection(),
     new Nudge(),

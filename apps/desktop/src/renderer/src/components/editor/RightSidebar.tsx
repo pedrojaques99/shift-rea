@@ -16,6 +16,8 @@ import { KerningPairSection } from "./sidebar-right/KerningPairSection";
 import { ScaleSection } from "./sidebar-right/ScaleSection";
 import { SidebarGroup } from "./sidebar-right/SidebarGroup";
 import { TextSection } from "./sidebar-right/TextSection";
+import { SidebarSection } from "./sidebar-right/SidebarSection";
+import { TextStyleControls } from "@/components/variation/TextStyleControls";
 import { TransformSection } from "./sidebar-right/TransformSection";
 import { ZoomMenu } from "./sidebar-right/ZoomMenu";
 import { LockIcon } from "@/components/icons/LockIcon";
@@ -106,6 +108,14 @@ export const RightSidebar = () => {
                   {textActive ? (
                     <SidebarGroup>
                       <TextSection />
+                    </SidebarGroup>
+                  ) : null}
+                  {/* The style the canvas draws at, outside typing too, as Figma's type panel. */}
+                  {!textActive && !hasTransformSelection ? (
+                    <SidebarGroup>
+                      <SidebarSection title="Style">
+                        <TextStyleControls />
+                      </SidebarSection>
                     </SidebarGroup>
                   ) : null}
                   <SidebarGroup>

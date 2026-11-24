@@ -15,8 +15,13 @@ export class TypingBehavior implements TextBehavior {
     return this.#click(state, ctx, event);
   }
 
+  /** Inside the run, places the caret; outside it, leaves typing for the select tool (Figma). */
   onDoubleClick(state: TextState, ctx: ToolContext<TextState>, event: DoubleClickEvent): boolean {
-    return this.#click(state, ctx, event);
+    if (this.#click(state, ctx, event)) return true;
+    if (state.type === "idle") return false;
+
+    ctx.editor.setActiveTool("select");
+    return true;
   }
 
   #click(

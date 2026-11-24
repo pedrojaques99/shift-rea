@@ -5,6 +5,7 @@ export { Resize } from "./Resize";
 export { Rotate } from "./Rotate";
 export { Nudge } from "./Nudge";
 export { Escape } from "./Escape";
+export { EmptyDoubleClick } from "./EmptyDoubleClick";
 export { ToggleSmooth } from "./ToggleSmooth";
 export { UpgradeSegment } from "./UpgradeSegment";
 export { BendCurve } from "./BendCurve";

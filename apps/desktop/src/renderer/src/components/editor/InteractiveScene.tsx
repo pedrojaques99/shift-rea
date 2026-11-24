@@ -1,5 +1,6 @@
 import { useContext, useCallback, useRef } from "react";
 
+import type { Point2D } from "@shift/geo";
 import { CanvasSurface } from "@shift/editor/rendering";
 import { CanvasContext } from "@/context/CanvasContext";
 import { useEditor } from "@/workspace/WorkspaceContext";
@@ -9,6 +10,35 @@ export const InteractiveScene = () => {
   const editor = useEditor();
   const toolManager = editor.toolManager;
   const activePointerIdRef = useRef<number | null>(null);
+  // Middle-button pan, as in Figma: works under any tool and never reaches it.
+  const middlePanRef = useRef<{ id: number; x: number; y: number; pan: Point2D } | null>(null);
+
+  const startMiddlePan = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    middlePanRef.current = { id: e.pointerId, x: e.clientX, y: e.clientY, pan: editor.pan };
+    e.currentTarget.setPointerCapture(e.pointerId);
+    e.currentTarget.style.cursor = "grabbing";
+  };
+
+  const moveMiddlePan = (e: React.PointerEvent<HTMLCanvasElement>): boolean => {
+    const drag = middlePanRef.current;
+    if (!drag || drag.id !== e.pointerId) return false;
+
+    editor.setPan({ x: drag.pan.x + e.clientX - drag.x, y: drag.pan.y + e.clientY - drag.y });
+    return true;
+  };
+
+  const endMiddlePan = (e: React.PointerEvent<HTMLCanvasElement>): boolean => {
+    const drag = middlePanRef.current;
+    if (!drag || drag.id !== e.pointerId) return false;
+
+    middlePanRef.current = null;
+    e.currentTarget.style.cursor = "";
+    if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+      e.currentTarget.releasePointerCapture(e.pointerId);
+    }
+    return true;
+  };
 
   const getScreenPoint = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -92,15 +122,29 @@ export const InteractiveScene = () => {
       id="interactive-canvas"
       ref={overlayCanvasRef}
       className="absolute inset-0 h-full w-full touch-none"
+      onMouseDown={(e) => {
+        // Stops Windows' middle-click autoscroll.
+        if (e.button === 1) e.preventDefault();
+      }}
       onPointerDown={(e) => {
+        if (e.button === 1) {
+          startMiddlePan(e);
+          return;
+        }
         if (!e.isPrimary || e.button !== 0) return;
 
         activePointerIdRef.current = e.pointerId;
         e.currentTarget.setPointerCapture(e.pointerId);
         toolManager.handlePointerDown(getScreenPoint(e), getModifiers(e));
       }}
-      onPointerUp={handlePointerUp}
-      onPointerMove={handlePointerMove}
+      onPointerUp={(e) => {
+        if (endMiddlePan(e)) return;
+        handlePointerUp(e);
+      }}
+      onPointerMove={(e) => {
+        if (moveMiddlePan(e)) return;
+        handlePointerMove(e);
+      }}
       onPointerLeave={handlePointerLeave}
       onPointerCancel={handlePointerCancel}
       onLostPointerCapture={handleLostPointerCapture}

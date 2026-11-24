@@ -81,6 +81,22 @@ describe("glyphs in the text around the edited glyph", () => {
     });
   });
 
+  it("leaves the edited glyph on a double-click in empty canvas, as one undo step", async () => {
+    await editor.doubleClickAt({ x: 3000, y: 3000 });
+    expect(editor.canvasText()).toMatchObject({ editedItemId: null });
+
+    await editor.undo();
+    expect(editor.canvasText()).toMatchObject({ editedItemId: editor.canvasText()!.items[0]!.id });
+  });
+
+  it("leaves typing for the select tool on a double-click outside the text", async () => {
+    editor.selectTool("text");
+
+    await editor.doubleClickAt({ x: 3000, y: 3000 });
+
+    expect(editor.toolState()).toMatchObject({ id: "select" });
+  });
+
   it("leaves the edited glyph as one undo step", async () => {
     await editor.pressKey("Escape");
     await editor.undo();

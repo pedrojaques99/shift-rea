@@ -9,6 +9,7 @@ import FontSizeIcon from "@/assets/general/font-size.svg";
 import LineHeightIcon from "@/assets/general/line-height.svg";
 import ShapingOffIcon from "@/assets/general/shaping-off.svg";
 import ShapingOnIcon from "@/assets/general/shaping-on.svg";
+import { TextStyleControls } from "@/components/variation/TextStyleControls";
 import type { TextSettingsTarget } from "@/types/textSettings";
 import { useEditor } from "@/workspace/WorkspaceContext";
 import { IconButton } from "./IconButton";
@@ -74,6 +75,7 @@ export const TextSection = () => {
           onClear={() => capture("Set line height", () => editor.text.setLineHeight(run.id, null))}
         />
       </div>
+      <TextStyleControls />
       <Row label="Alignment">
         <AlignButtons
           runId={run.id}
