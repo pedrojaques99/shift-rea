@@ -6,6 +6,7 @@ import { linkOn, type MetricsLinks } from "../lib/model/MetricsLinks";
 import { useSignalState } from "../lib/signals";
 import { EditableSidebarInput, type EditableSidebarInputProps } from "./EditableSidebarInput";
 import { GlyphIdentityFields } from "./GlyphIdentityFields";
+import { GlyphSpacingPreview } from "./GlyphSpacingPreview";
 import { beginMetricScrub } from "./metricScrub";
 import { ShiftIcon } from "./ShiftIcon";
 import type { EditorUISession } from "./types";
@@ -36,10 +37,11 @@ type MetricKeyProps = Pick<
   "keyText" | "onKeyCommit" | "icon" | "iconPosition" | "tooltip"
 >;
 
+/** The side a `|` key mirrors, in the words the fields use. */
 const OPPOSITE_SIDE_NAME: Record<MetricsKeySide, string> = {
-  left: "RSB",
-  right: "LSB",
-  width: "LSB",
+  left: "Right",
+  right: "Left",
+  width: "Left",
 };
 
 /** The sidebearing fields' width: their row sizes to its content, so the field cannot fill it. */
@@ -160,11 +162,16 @@ export function GlyphSidebar({ session, host = {} }: GlyphSidebarProps) {
               <h3 className="text-ui font-medium text-primary">Glyph</h3>
               {host.glyphHeading}
             </div>
-            <main className="flex flex-col items-center">
+            {glyph ? null : (
+              <p className="text-ui text-muted">
+                Select one glyph to see the space around it, its width and its name.
+              </p>
+            )}
+            <main className={glyph ? "flex flex-col items-center" : "hidden"}>
               <div className="flex items-center justify-center gap-2">
                 <EditableSidebarInput
                   ariaLabel="Left sidebearing"
-                  label="LSB"
+                  label="Left"
                   className="text-right"
                   fieldClassName={SIDEBEARING_FIELD}
                   value={leftSidebearing}
@@ -181,12 +188,12 @@ export function GlyphSidebar({ session, host = {} }: GlyphSidebarProps) {
                     leftSidebearing,
                   )}
                 />
-                <div className="px-2">
-                  <ShiftIcon name="placeholder-glyph" className="h-[55px] w-8 text-primary" />
+                <div className="px-1">
+                  {glyph ? <GlyphSpacingPreview editor={editor} glyph={glyph} /> : null}
                 </div>
                 <EditableSidebarInput
                   ariaLabel="Right sidebearing"
-                  label="RSB"
+                  label="Right"
                   labelPosition="right"
                   className="text-left"
                   fieldClassName={SIDEBEARING_FIELD}
@@ -208,6 +215,7 @@ export function GlyphSidebar({ session, host = {} }: GlyphSidebarProps) {
               <div className="mt-2">
                 <EditableSidebarInput
                   ariaLabel="Advance width"
+                  label="Width"
                   className="text-center"
                   fieldClassName="w-[8.875rem]"
                   value={glyph ? Math.round(xAdvance) : null}

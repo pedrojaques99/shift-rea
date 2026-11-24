@@ -54,6 +54,7 @@ function GlyphIdentityFieldsFor({
       <div className="flex gap-1.5">
         <TextField
           ariaLabel="Glyph name"
+          label="Name"
           value={entry.name}
           disabled={!editable}
           className="text-center"

@@ -10,23 +10,13 @@ import LineHeightIcon from "@/assets/general/line-height.svg";
 import ShapingOffIcon from "@/assets/general/shaping-off.svg";
 import ShapingOnIcon from "@/assets/general/shaping-on.svg";
 import { TextStyleControls } from "@/components/variation/TextStyleControls";
-import type { TextSettingsTarget } from "@/types/textSettings";
+import { useTextSettingsRun } from "@/hooks/useTextSettingsRun";
 import { useEditor } from "@/workspace/WorkspaceContext";
 import { IconButton } from "./IconButton";
 import { SidebarNumberField } from "./SidebarNumberField";
 import { SidebarPicker } from "./SidebarPicker";
 import { SidebarSection } from "./SidebarSection";
 import { LanguagePanel, ScriptPanel, languageLabel, scriptName, UNSET } from "./TextShapingPanels";
-
-/** The proof text the sidebar's text settings apply to, and the node that places it. */
-export function useTextSettingsRun(): TextSettingsTarget | null {
-  const editor = useEditor();
-  const run = useSignalState(editor.text.currentRunCell);
-  const node = useSignalState(editor.text.currentRunNodeCell);
-  if (!run || !node) return null;
-
-  return { run, node };
-}
 
 /**
  * Settings for the proof text the user is working in: size and line height

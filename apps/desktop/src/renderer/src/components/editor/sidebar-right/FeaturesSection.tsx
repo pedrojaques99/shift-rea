@@ -21,7 +21,7 @@ import { FeaturePreviewPopover, TAG_PILL } from "./FeaturePreviewPopover";
 import { featureSetting, FontFeatures, onByDefault, settingStep } from "./fontFeatures";
 import { useSidebarBlock } from "./SidebarGroup";
 import { SidebarSection } from "./SidebarSection";
-import { useTextSettingsRun } from "./TextSection";
+import { useTextSettingsRun } from "@/hooks/useTextSettingsRun";
 
 /**
  * Every feature the text can turn on or off, grouped under headings, so

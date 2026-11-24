@@ -12,6 +12,9 @@ import {
   MenuPositioner,
   MenuTrigger,
 } from "@shift/ui";
+import FontSizeIcon from "@/assets/general/font-size.svg";
+import { SidebarNumberField } from "@/components/editor/sidebar-right/SidebarNumberField";
+import { useTextSettingsRun } from "@/hooks/useTextSettingsRun";
 import { useExternalLocation } from "@/hooks/useExternalLocation";
 import { useNamedInstances } from "@/hooks/useNamedInstances";
 import { useEditor, useFontSession } from "@/workspace/WorkspaceContext";
@@ -25,8 +28,9 @@ import { AxesPanel } from "./AxesPanel";
  * Both drive the window's axis location, which every proof text is laid out at.
  * A location between instances reads "Custom".
  */
-export const TextStyleControls = () => {
+export const TextStyleControls = ({ withSize = false }: { readonly withSize?: boolean }) => {
   const editor = useEditor();
+  const textRun = useTextSettingsRun();
   const session = useFontSession();
   const instances = useNamedInstances();
   const [location] = useExternalLocation();
@@ -40,6 +44,19 @@ export const TextStyleControls = () => {
 
   return (
     <div className="flex flex-col gap-2">
+      {/* The page's text size, outside typing too: the Text section shows its own field. */}
+      {withSize && textRun ? (
+        <SidebarNumberField
+          ariaLabel="Font size"
+          label={<FontSizeIcon aria-hidden className="size-4" />}
+          value={textRun.node.size}
+          onValueCommit={(size) =>
+            editor.history.capture("Set font size", () =>
+              editor.text.setSize(textRun.node.id, size),
+            )
+          }
+        />
+      ) : null}
       {instances.length > 0 ? (
         <Menu modal={false}>
           <MenuTrigger

@@ -114,7 +114,7 @@ export const RightSidebar = () => {
                   {!textActive && !hasTransformSelection ? (
                     <SidebarGroup>
                       <SidebarSection title="Style">
-                        <TextStyleControls />
+                        <TextStyleControls withSize />
                       </SidebarSection>
                     </SidebarGroup>
                   ) : null}
