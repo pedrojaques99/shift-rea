@@ -597,6 +597,8 @@ export interface EditorTestSurface extends EditorReads, EditorActions, FontBuild
   toolState(): ActiveTool | null;
   /** The canvas text as it shows now: items, placed glyphs, and caret; null when there is none. */
   canvasText(): CanvasText | null;
+  /** Where the text caret draws on screen, and the canvas width; null while not typing. */
+  caretOnScreen(): { readonly x: number; readonly canvasWidth: number } | null;
   /**
    * Why the canvas says proof text is not shown, as its notice reads it
    * (`Text.layoutFailureCell`): the stage that failed and the error's

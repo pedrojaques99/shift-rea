@@ -16,13 +16,9 @@ describe("Text mode", () => {
     editor.resizeCanvas(800, 600);
     editor.typeText("A".repeat(80));
 
-    const nodeId = editor.textEditing.state!.nodeId;
-    const node = editor.scene.nodeOfKind(nodeId, "textRun")!;
-    const { x, y } = editor.textEditing.caretIn(nodeId)!.position;
-    const caret = editor.sceneToScreen(editor.toScene(node, { x, y } as never));
-
+    const caret = editor.caretOnScreen()!;
     expect(caret.x).toBeGreaterThan(0);
-    expect(caret.x).toBeLessThanOrEqual(editor.camera.logicalWidth);
+    expect(caret.x).toBeLessThanOrEqual(caret.canvasWidth);
   });
 
   it("ends on Escape, hiding the caret and editing the glyph again", async () => {

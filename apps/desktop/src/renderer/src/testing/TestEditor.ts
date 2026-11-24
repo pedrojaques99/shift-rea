@@ -1620,6 +1620,17 @@ export class TestEditor extends Editor implements EditorTestSurface {
     return this.#reads.editor.textRun();
   }
 
+  caretOnScreen(): { readonly x: number; readonly canvasWidth: number } | null {
+    const nodeId = this.textEditing.state?.nodeId ?? null;
+    const node = this.scene.nodeOfKind(nodeId, "textRun");
+    const caret = node && this.textEditing.caretIn(node.id);
+    if (!node || !caret) return null;
+
+    const { x, y } = caret.position;
+    const screen = this.sceneToScreen(this.toScene(node, localPoint(x, y)));
+    return { x: screen.x, canvasWidth: this.camera.logicalWidth };
+  }
+
   spacingTool(): SpacingToolView | null {
     return this.#reads.editor.spacingTool();
   }
