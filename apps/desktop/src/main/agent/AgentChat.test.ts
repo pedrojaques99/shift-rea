@@ -1,4 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import type { ChatEvent } from "../../shared/agent/chat";
 import { AgentChat, withAttachments } from "./AgentChat";
@@ -25,7 +27,14 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
 
     await new Promise<void>((resolve) => {
       chat.send(
-        { provider: "claude", prompt: "draw an O", sessionId: null, model: null, attachments: [] },
+        {
+          provider: "claude",
+          prompt: "draw an O",
+          sessionId: null,
+          model: null,
+          attachments: [],
+          conversation: null,
+        },
         TARGET,
         (event) => {
           events.push(event);
@@ -133,6 +142,7 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
         sessionId: null,
         model: null,
         attachments: ["C:/chat/attachments/ab-sketch.png"],
+        conversation: null,
       }),
     ).toBe(
       [
@@ -211,5 +221,40 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
       { kind: "text", text: "Drew the O." },
       { kind: "finished", ok: true, error: null, costUsd: null },
     ]);
+  });
+
+  it("keeps a document's conversation on disk, so it comes back after a restart", async () => {
+    process.env.SHIFT_CHAT_CMD_CLAUDE = JSON.stringify([process.execPath, FAKE_CLAUDE]);
+    const workDir = fs.mkdtempSync(path.join(os.tmpdir(), "shift-chat-"));
+    const before = new AgentChat(workDir);
+
+    await new Promise<void>((resolve) => {
+      before.send(
+        {
+          provider: "claude",
+          prompt: "draw an O",
+          sessionId: null,
+          model: null,
+          attachments: [],
+          conversation: "doc-1",
+        },
+        TARGET,
+        (event) => {
+          if (event.kind === "finished") resolve();
+        },
+      );
+    });
+
+    const after = new AgentChat(workDir);
+    const history = after.history("doc-1");
+    expect(history.sessions).toEqual({ claude: "session-1" });
+    expect(history.records[0]).toMatchObject({ kind: "user", text: "draw an O" });
+    expect(history.records).toContainEqual(
+      expect.objectContaining({ kind: "event", event: { kind: "text", text: "heard: draw an O" } }),
+    );
+    expect(after.history("doc-2").records).toEqual([]);
+
+    after.reset("doc-1");
+    expect(new AgentChat(workDir).history("doc-1")).toEqual({ records: [], sessions: {} });
   });
 });

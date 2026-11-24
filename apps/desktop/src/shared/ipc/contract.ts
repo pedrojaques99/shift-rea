@@ -7,6 +7,7 @@ import type {
   ApiKeysState,
   ApiVendor,
   ChatEvent,
+  ChatHistory,
   ChatProvider,
   ChatRun,
   ChatSendRequest,
@@ -57,6 +58,10 @@ export type RendererToMain = {
   "agentChat.send": (request: ChatSendRequest) => ChatRun;
   /** Stops a chat run this window started. */
   "agentChat.stop": (runId: string) => void;
+  /** A document's conversation as kept on disk, since its last "new conversation". */
+  "agentChat.history": (conversation: string) => ChatHistory;
+  /** Starts a new conversation for a document; the old one stays on disk. */
+  "agentChat.reset": (conversation: string) => void;
   /** Saves a file the user attached to a chat message; resolves with where the agent finds it. */
   "agentChat.attach": (name: string, data: Uint8Array) => string;
   /** Which vendors have one of the user's own API keys stored. */

@@ -18,7 +18,11 @@ import {
 import { PromptComposer } from "@/components/visant/ui/prompt-composer";
 import { SoftwareGlyph, softwareFromTool } from "@/components/visant/ui/software-glyph";
 import { WorkingGlyph } from "@/components/visant/ui/working-glyph";
+import { useSignalState } from "@shift/editor/signals";
 import { useAgentChat } from "@/hooks/useAgentChat";
+import { documentViewKey } from "@/lib/workspace/documentViews";
+import type { Workspace } from "@/workspace/Workspace";
+import { useFontSession } from "@/workspace/WorkspaceContext";
 import type { ChatEntry } from "@/types/agentChat";
 import { Markdown } from "./Markdown";
 
@@ -41,7 +45,21 @@ type Tool = Extract<ChatEntry, { kind: "tool" }>;
  * key, works on the open font through Shift, and every change is one undo step.
  */
 export function AgentChatPanel() {
-  const chat = useAgentChat();
+  const session = useFontSession();
+  if (session.mode !== "workspace") return <ChatBody conversation={null} />;
+
+  return <WorkspaceChat workspace={session.workspace} />;
+}
+
+/** One conversation per document, kept on disk; a different document starts its own. */
+function WorkspaceChat({ workspace }: { workspace: Workspace }) {
+  const document = useSignalState(workspace.documentStateCell);
+  const conversation = document === null ? null : documentViewKey(document);
+  return <ChatBody key={conversation ?? "none"} conversation={conversation} />;
+}
+
+function ChatBody({ conversation }: { conversation: string | null }) {
+  const chat = useAgentChat(conversation);
   const [draft, setDraft] = useState("");
   const viewport = useRef<HTMLDivElement>(null);
   const installed = chat.providers.filter(({ installed: has }) => has);

@@ -40,6 +40,40 @@ export interface ChatSendRequest {
   model: string | null;
   /** Files the user attached, as `agentChat.attach` saved them; the agent may read them. */
   attachments: string[];
+  /**
+   * The conversation this message belongs to, one per document; its history
+   * is kept on disk and survives a restart. Null keeps nothing (a preview).
+   */
+  conversation: string | null;
+}
+
+/** One line of a conversation's history on disk, in the order things happened. */
+export type ChatRecord =
+  | { kind: "user"; text: string; attachments: string[]; at: number }
+  | { kind: "event"; provider: ChatProviderId; event: ChatEvent; at: number }
+  /** "New conversation": what came before stays on disk but no longer shows. */
+  | { kind: "reset"; at: number };
+
+/** A conversation as it reads back: what shows, and the session each provider continues. */
+export interface ChatHistory {
+  records: ChatRecord[];
+  sessions: Partial<Record<ChatProviderId, string>>;
+}
+
+/**
+ * Folds a conversation's records into what shows since the last reset and
+ * the session each provider would continue.
+ */
+export function foldHistory(records: readonly ChatRecord[]): ChatHistory {
+  const lastReset = records.findLastIndex((record) => record.kind === "reset");
+  const shown = records.slice(lastReset + 1);
+  const sessions: Partial<Record<ChatProviderId, string>> = {};
+  for (const record of shown) {
+    if (record.kind === "event" && record.event.kind === "started") {
+      sessions[record.provider] = record.event.sessionId;
+    }
+  }
+  return { records: shown, sessions };
 }
 
 /** A run the chat started, which `agentChat.stop` can end. */

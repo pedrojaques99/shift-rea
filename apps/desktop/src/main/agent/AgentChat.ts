@@ -5,6 +5,7 @@ import path from "node:path";
 import os from "node:os";
 import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "../../shared/agent/chat";
 import type { ApiChat } from "./ApiChat";
+import { ConversationLog } from "./ConversationLog";
 import { CHAT_ADAPTERS, type ChatInvocation, type CommandProviderId } from "./chatProviders";
 
 /** Where the chat's agent finds this build's MCP server, and what it should know. */
@@ -30,6 +31,7 @@ export class AgentChat {
   readonly #runs = new Map<string, ChildProcess>();
   readonly #workDir: string;
   readonly #api: ApiChat | null;
+  readonly #log: ConversationLog;
 
   /**
    * @param workDir - The agents' working directory; it holds their per-run config files.
@@ -41,6 +43,17 @@ export class AgentChat {
   ) {
     this.#workDir = workDir;
     this.#api = api;
+    this.#log = new ConversationLog(path.join(workDir, "history"));
+  }
+
+  /** A document's conversation as kept on disk. */
+  history(conversation: string): ChatHistory {
+    return this.#log.history(conversation);
+  }
+
+  /** Starts a new conversation for a document; the old one stays on disk. */
+  reset(conversation: string): void {
+    this.#log.append(conversation, { kind: "reset", at: Date.now() });
   }
 
   /** The providers found on this computer, and the models each lets the user pick. */
@@ -68,7 +81,8 @@ export class AgentChat {
    * @throws {Error} when the provider's command is not installed.
    */
   send(request: ChatSendRequest, target: ChatTarget, onEvent: (event: ChatEvent) => void): ChatRun {
-    if (request.provider === "api") return this.#sendApi(request, target, onEvent);
+    const report = this.#recorded(request, onEvent);
+    if (request.provider === "api") return this.#sendApi(request, target, report);
 
     const adapter = CHAT_ADAPTERS[request.provider];
     const command = commandFor(request.provider);
@@ -109,7 +123,7 @@ export class AgentChat {
       if (finished) return;
 
       if (event.kind === "finished") finished = true;
-      onEvent(event);
+      report(event);
     };
     readLines(child, (line) => {
       for (const event of adapter.read(line)) emit(event);
@@ -169,6 +183,21 @@ export class AgentChat {
     const file = path.join(directory, `${crypto.randomUUID().slice(0, 8)}-${safe}`);
     fs.writeFileSync(file, data);
     return file;
+  }
+
+  /**
+   * Keeps the message and every event of its reply in the document's
+   * conversation on disk, as they happen, then reports them to `onEvent`.
+   */
+  #recorded(request: ChatSendRequest, onEvent: (event: ChatEvent) => void) {
+    const { conversation, provider, prompt, attachments } = request;
+    if (!conversation) return onEvent;
+
+    this.#log.append(conversation, { kind: "user", text: prompt, attachments, at: Date.now() });
+    return (event: ChatEvent) => {
+      this.#log.append(conversation, { kind: "event", provider, event, at: Date.now() });
+      onEvent(event);
+    };
   }
 
   /** Stops a run; nothing happens when it already ended. */

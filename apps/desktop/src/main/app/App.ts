@@ -610,6 +610,12 @@ export class App {
       return run;
     });
     ipc.handle(ipcMain, "agentChat.stop", (_event, runId) => this.#agentChat.stop(runId));
+    ipc.handle(ipcMain, "agentChat.history", (_event, conversation) =>
+      this.#agentChat.history(conversation),
+    );
+    ipc.handle(ipcMain, "agentChat.reset", (_event, conversation) =>
+      this.#agentChat.reset(conversation),
+    );
     ipc.handle(ipcMain, "agentChat.attach", (_event, name, data) =>
       this.#agentChat.attach(name, data),
     );

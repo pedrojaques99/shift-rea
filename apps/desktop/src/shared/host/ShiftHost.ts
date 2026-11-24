@@ -2,6 +2,7 @@ import type {
   ApiKeysState,
   ApiVendor,
   ChatEvent,
+  ChatHistory,
   ChatProvider,
   ChatRun,
   ChatSendRequest,
@@ -169,6 +170,10 @@ export interface ShiftHost {
     stop: (runId: string) => Promise<void>;
     /** Saves an attached file for the agent; resolves with its path. */
     attach: (name: string, data: Uint8Array) => Promise<string>;
+    /** A document's conversation as kept on disk. */
+    history: (conversation: string) => Promise<ChatHistory>;
+    /** Starts a new conversation for a document; the old one stays on disk. */
+    reset: (conversation: string) => Promise<void>;
     /**
      * Subscribes to this window's chat runs.
      *

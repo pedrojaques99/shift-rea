@@ -17,6 +17,8 @@ const shiftHost: ShiftHost = {
     send: invoke(ipcRenderer, "agentChat.send"),
     stop: invoke(ipcRenderer, "agentChat.stop"),
     attach: invoke(ipcRenderer, "agentChat.attach"),
+    history: invoke(ipcRenderer, "agentChat.history"),
+    reset: invoke(ipcRenderer, "agentChat.reset"),
     onEvent: listen(ipcRenderer, "agentChat.event"),
   },
   agentKeys: {

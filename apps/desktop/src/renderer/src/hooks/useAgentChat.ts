@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ChatEvent, ChatProvider, ChatProviderId } from "@shared/agent/chat";
+import type { ChatEvent, ChatProvider, ChatProviderId, ChatRecord } from "@shared/agent/chat";
 import { getShiftHost } from "@/host/shiftHost";
 import { useAgentConnections } from "@/hooks/useAgentConnections";
 import type { AgentChatView, ChatAttachment, ChatEntry } from "@/types/agentChat";
@@ -63,7 +63,7 @@ function entryId(): string {
  * Each provider keeps its own conversation, continued by the session id its
  * first reply reports, until {@link AgentChatActions.reset}.
  */
-export function useAgentChat(): AgentChatView & AgentChatActions {
+export function useAgentChat(conversation: string | null): AgentChatView & AgentChatActions {
   const connections = useAgentConnections();
   const [providers, setProviders] = useState<readonly ChatProvider[]>([]);
   const [provider, setProviderId] = useState<ChatProviderId>("claude");
@@ -76,6 +76,24 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
   // A run can report before `send` resolves with its id: hold those events.
   const early = useRef(new Map<string, ChatEvent[]>());
   const activeRun = useRef<string | null>(null);
+
+  // The document's conversation, as kept on disk, comes back when the panel opens.
+  useEffect(() => {
+    if (!conversation) return;
+
+    let live = true;
+    const restore = async () => {
+      const history = await getShiftHost().agentChat.history(conversation);
+      if (!live) return;
+
+      sessions.current = { ...history.sessions };
+      setEntries(entriesFrom(history.records));
+    };
+    void restore();
+    return () => {
+      live = false;
+    };
+  }, [conversation]);
 
   useEffect(() => {
     let live = true;
@@ -138,6 +156,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
           sessionId: sessions.current[provider] ?? null,
           model,
           attachments: sent.map(({ path }) => path),
+          conversation,
         });
         activeRun.current = run.runId;
         setRunId(run.runId);
@@ -149,7 +168,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
         setEntries((list) => [...list, { id: entryId(), kind: "error", text: message }]);
       }
     },
-    [provider, model, runId, receive, attachments],
+    [provider, model, runId, receive, attachments, conversation],
   );
 
   const stop = useCallback(async () => {
@@ -161,9 +180,10 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
   }, [runId]);
 
   const reset = useCallback(() => {
-    delete sessions.current[provider];
+    sessions.current = {};
     setEntries([]);
-  }, [provider]);
+    if (conversation) void getShiftHost().agentChat.reset(conversation);
+  }, [conversation]);
 
   const attachFiles = useCallback(async (files: readonly File[]) => {
     for (const file of files) {
@@ -220,6 +240,46 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
     setModel,
     allowConnections,
   };
+}
+
+/** The last part of a path, on Windows or anywhere else. */
+function fileName(file: string): string {
+  const parts = file.replaceAll(String.fromCharCode(92), "/").split("/");
+  return parts.at(-1) || file;
+}
+
+/** The transcript a conversation's records show, as the live chat would have built it. */
+function entriesFrom(records: readonly ChatRecord[]): ChatEntry[] {
+  return records.flatMap((record): ChatEntry[] => {
+    switch (record.kind) {
+      case "user":
+        return [
+          {
+            id: entryId(),
+            kind: "user",
+            text: record.text,
+            attachments: record.attachments.map(fileName),
+          },
+        ];
+      case "reset":
+        return [];
+      case "event": {
+        const { event } = record;
+        switch (event.kind) {
+          case "text":
+            return [{ id: entryId(), kind: "agent", text: event.text }];
+          case "tool":
+            return [{ id: entryId(), kind: "tool", name: event.name, summary: event.summary }];
+          case "finished":
+            return !event.ok && event.error
+              ? [{ id: entryId(), kind: "error", text: event.error }]
+              : [];
+          case "started":
+            return [];
+        }
+      }
+    }
+  });
 }
 
 function applyEvent(
