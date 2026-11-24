@@ -12,6 +12,7 @@
  */
 
 import { GlyphDesignspace } from "@/lib/variation/GlyphDesignspace";
+import { neighbourPairs, pairLabel } from "@/lib/kerning/neighbourPairs";
 import type { GlyphSourceRow } from "@/types/glyphAxes";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -1633,6 +1634,32 @@ export class TestEditor extends Editor implements EditorTestSurface {
 
   spacingTool(): SpacingToolView | null {
     return this.#reads.editor.spacingTool();
+  }
+
+  neighbourKerning(): readonly {
+    readonly pair: string;
+    readonly amount: number;
+    readonly editable: boolean;
+  }[] {
+    return this.#neighbourPairs().map((pair) => {
+      const edited = pair.editablePair(this);
+      return {
+        pair: pairLabel(this, pair),
+        amount: edited?.amount ?? Math.round(pair.amount),
+        editable: edited !== null,
+      };
+    });
+  }
+
+  setNeighbourKerning(index: number, amount: number): void {
+    const pair = this.#neighbourPairs()[index];
+    if (!pair) throw new Error(`no neighbour kerning pair ${index}`);
+    pair.set(this, amount);
+  }
+
+  #neighbourPairs() {
+    const node = this.scene.only("glyph");
+    return node ? neighbourPairs(this, node) : [];
   }
 
   kerningTool(): KerningToolView | null {

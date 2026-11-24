@@ -434,6 +434,8 @@ export interface EditorTestSurface extends EditorReads, EditorActions, FontBuild
    * @throws {Error} when the engine refuses the value.
    */
   setKerning(source: string, first: string, second: string, amount: number | null): void;
+  /** Types `amount` into the Kerning section's field for the `index`th neighbour pair. */
+  setNeighbourKerning(index: number, amount: number): void;
   /**
    * Shows `amount` between two glyphs at a source without committing it, as
    * dragging with the Kerning tool does. {@link cancelGesture} discards it.
@@ -611,6 +613,15 @@ export interface EditorTestSurface extends EditorReads, EditorActions, FontBuild
   metricsLinks(): readonly SideLink[];
   /** What the Kerning tool shows; null when it is not active. */
   kerningTool(): KerningToolState | null;
+  /**
+   * The Kerning section's pairs around the edited glyph in its text, as the sidebar lists them:
+   * each label ("TA"), its kern, and whether it can be changed here (only at a master).
+   */
+  neighbourKerning(): readonly {
+    readonly pair: string;
+    readonly amount: number;
+    readonly editable: boolean;
+  }[];
   /** The open glyph's outline as the canvas draws it now, a gesture's uncommitted preview included. */
   drawnOutline(): Outline;
   /** The point handles the canvas draws on the open glyph, with how each is styled. */

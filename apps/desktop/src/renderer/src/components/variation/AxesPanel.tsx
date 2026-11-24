@@ -1,6 +1,7 @@
 import { useSignalState } from "@shift/editor/signals";
 import { axisValue, withExternalAxisValue } from "@shift/editor/variation";
 import type { Axis } from "@shift/types";
+import type { Axis as ModelAxis } from "@shift/editor/model";
 import {
   Button,
   Menu,
@@ -42,7 +43,11 @@ export const AxesPanel = ({ actions = true }: { readonly actions?: boolean }) =>
           setExternalLocation(withExternalAxisValue(location, axis, next));
 
         return (
-          <div key={axis.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+          <div
+            key={axis.id}
+            title={axisHint(axis)}
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1"
+          >
             <InspectorSlider
               label={axis.name}
               value={value}
@@ -97,3 +102,18 @@ const AxisActionsMenu = ({ axis, onEdit, onReset, onDelete }: AxisActionsMenuPro
     </MenuPortal>
   </Menu>
 );
+
+/** What each registered axis changes, in a designer's words. */
+const AXIS_HINTS: Readonly<Record<string, string>> = {
+  wght: "How heavy the letters are, from thin to black",
+  wdth: "How wide the letters are, from condensed to extended",
+  opsz: "Tunes the design for the size it is read at",
+  slnt: "How far the letters lean",
+  ital: "Switches to the italic forms",
+};
+
+/** The hover hint for an axis row: what it does, then its range. Double-click resets it. */
+function axisHint(axis: ModelAxis): string {
+  const what = AXIS_HINTS[axis.tag] ?? `${axis.name}, an axis of this font`;
+  return `${what} (${axis.minimum} to ${axis.maximum}). Drag, type, or double-click to reset.`;
+}
