@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronRight, Plus } from "lucide-react";
 import {
   Button,
@@ -16,15 +16,32 @@ import {
   Tooltip,
 } from "@shift/ui";
 import { PromptComposer } from "@/components/visant/ui/prompt-composer";
-import { SoftwareGlyph, softwareFromTool } from "@/components/visant/ui/software-glyph";
+import {
+  SoftwareGlyph,
+  softwareById,
+  softwareFromTool,
+} from "@/components/visant/ui/software-glyph";
 import { WorkingGlyph } from "@/components/visant/ui/working-glyph";
 import { useSignalState } from "@shift/editor/signals";
 import { useAgentChat } from "@/hooks/useAgentChat";
 import { documentViewKey } from "@/lib/workspace/documentViews";
 import type { Workspace } from "@/workspace/Workspace";
 import { useFont, useFontSession } from "@/workspace/WorkspaceContext";
+import type { ChatProviderId } from "@shared/agent/chat";
 import type { ChatEntry } from "@/types/agentChat";
 import { Markdown } from "./Markdown";
+
+/**
+ * Each provider's logo in the kit's software catalog: the agent's maker, since
+ * the CLIs have no marks of their own (Codex is OpenAI's, agy is Google's).
+ */
+const PROVIDER_LOGO: Record<ChatProviderId, string> = {
+  claude: "claude",
+  codex: "openai",
+  agy: "gemini",
+  opencode: "terminal",
+  api: "ferramenta",
+};
 
 /** The model option that leaves the provider's own default. */
 const DEFAULT_MODEL = "__default__";
@@ -92,7 +109,11 @@ function ChatBody({ conversation }: { conversation: string | null }) {
         <HeaderSelect
           label="Agent"
           value={chat.provider}
-          options={installed.map(({ id, name }) => ({ id, label: name }))}
+          options={installed.map(({ id, name }) => ({
+            id,
+            label: name,
+            icon: <SoftwareGlyph software={softwareById(PROVIDER_LOGO[id])} size={12} />,
+          }))}
           disabled={chat.running}
           onChange={chat.setProvider}
         />
@@ -324,12 +345,12 @@ function HeaderSelect<Value extends string>({
 }: {
   label: string;
   value: Value;
-  options: readonly { id: Value; label: string }[];
+  options: readonly { id: Value; label: string; icon?: ReactNode }[];
   disabled: boolean;
   onChange: (value: Value) => void;
 }) {
-  const current =
-    options.find((option) => option.id === value)?.label ?? `No ${label.toLowerCase()}`;
+  const selected = options.find((option) => option.id === value);
+  const current = selected?.label ?? `No ${label.toLowerCase()}`;
 
   return (
     <Select
@@ -340,6 +361,7 @@ function HeaderSelect<Value extends string>({
       }}
     >
       <SelectTrigger variant="field" aria-label={label} className="h-6 w-auto min-w-0">
+        {selected?.icon}
         <span className="truncate text-ui">{current}</span>
         <span aria-hidden className="flex shrink-0 text-muted">
           <ChevronDown className="h-3 w-3" strokeWidth={1.75} />
@@ -352,7 +374,12 @@ function HeaderSelect<Value extends string>({
               {options.map((option) => (
                 <SelectItem key={option.id} value={option.id}>
                   <SelectItemIndicator />
-                  <SelectItemText>{option.label}</SelectItemText>
+                  <SelectItemText>
+                    <span className="flex items-center gap-1.5">
+                      {option.icon}
+                      {option.label}
+                    </span>
+                  </SelectItemText>
                 </SelectItem>
               ))}
             </SelectList>
