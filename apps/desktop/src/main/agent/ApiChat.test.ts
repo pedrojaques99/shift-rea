@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { MockLanguageModelV4, convertArrayToReadableStream } from "ai/test";
 import { ShiftMcpServer } from "@shift/mcp";
-import type { ChatEvent } from "@shared/agent/chat";
+import type { ChatEvent } from "../../shared/agent/chat";
 import { ApiChat } from "./ApiChat";
 
 const USAGE = {

@@ -1,4 +1,4 @@
-import type { ChatEvent, ChatProviderId } from "@shared/agent/chat";
+import type { ChatEvent, ChatProviderId } from "../../shared/agent/chat";
 
 /** What a provider's command needs for one message. */
 export interface ChatInvocation {

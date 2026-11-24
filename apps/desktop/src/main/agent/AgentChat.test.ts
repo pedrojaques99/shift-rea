@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import path from "node:path";
-import type { ChatEvent } from "@shared/agent/chat";
+import type { ChatEvent } from "../../shared/agent/chat";
 import { AgentChat } from "./AgentChat";
 import {
   CHAT_ADAPTERS,

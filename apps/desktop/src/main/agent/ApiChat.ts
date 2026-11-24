@@ -5,7 +5,7 @@ import { createMCPClient } from "@ai-sdk/mcp";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 import { isStepCount, streamText, type LanguageModel, type ModelMessage } from "ai";
-import { API_VENDORS, type ApiVendor, type ChatEvent } from "@shared/agent/chat";
+import { API_VENDORS, type ApiVendor, type ChatEvent } from "../../shared/agent/chat";
 import { toolSummary } from "./chatProviders";
 
 /** How many model turns one message may take while it calls Shift's tools. */

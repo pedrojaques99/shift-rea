@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "@shared/agent/chat";
+import type { ChatEvent, ChatProvider, ChatRun, ChatSendRequest } from "../../shared/agent/chat";
 import type { ApiChat } from "./ApiChat";
 import { CHAT_ADAPTERS, type ChatInvocation, type CommandProviderId } from "./chatProviders";
 

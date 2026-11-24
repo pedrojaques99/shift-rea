@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { safeStorage } from "electron";
-import { API_VENDORS, type ApiVendor, type ApiKeysState } from "@shared/agent/chat";
+import { API_VENDORS, type ApiVendor, type ApiKeysState } from "../../shared/agent/chat";
 
 /**
  * The user's own API keys for the agent chat, encrypted with the operating
