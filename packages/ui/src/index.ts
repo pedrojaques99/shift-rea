@@ -227,6 +227,7 @@ export {
   type ResizablePanelProps,
   type ResizableHandleProps,
   type ResizablePanelHandle,
+  type ResizablePanelGroupHandle,
 } from "./components/resizable";
 export {
   PortalContainerProvider,

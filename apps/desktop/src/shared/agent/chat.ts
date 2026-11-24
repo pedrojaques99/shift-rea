@@ -38,6 +38,8 @@ export interface ChatSendRequest {
   sessionId: string | null;
   /** A model from {@link ChatProvider.models}; null uses the provider's default. */
   model: string | null;
+  /** Files the user attached, as `agentChat.attach` saved them; the agent may read them. */
+  attachments: string[];
 }
 
 /** A run the chat started, which `agentChat.stop` can end. */

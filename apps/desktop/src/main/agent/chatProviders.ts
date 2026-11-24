@@ -39,6 +39,9 @@ export interface ChatAdapter {
 /** The Shift MCP tools an agent may call: reading, rendering, checking and editing the open font. */
 const SHIFT_TOOLS = ["shift.guide", "shift.describe", "shift.execute", "shift.capture"];
 
+/** Tools outside Shift a chat agent may use: reading the files the user attached. */
+const READ_TOOLS = ["Read"];
+
 /**
  * Claude Code, as `claude -p` with `stream-json` output. It sees only Shift's
  * MCP server (`--strict-mcp-config`) and may call only its tools: every other
@@ -50,7 +53,10 @@ const claude: ChatAdapter = {
   stdin: true,
   args({ sessionId, newSessionId, serverName, url, context, model }) {
     const config = JSON.stringify({ mcpServers: { [serverName]: { type: "http", url } } });
-    const allowed = SHIFT_TOOLS.map((tool) => `mcp__${serverName}__${tool}`).join(",");
+    const allowed = [
+      ...SHIFT_TOOLS.map((tool) => `mcp__${serverName}__${tool}`),
+      ...READ_TOOLS,
+    ].join(",");
     const conversation = sessionId ? ["--resume", sessionId] : ["--session-id", newSessionId];
     return [
       "-p",

@@ -2,6 +2,7 @@ import {
   Group,
   Panel,
   Separator as PanelSeparator,
+  type GroupImperativeHandle,
   type GroupProps,
   type PanelImperativeHandle,
   type PanelProps,
@@ -12,6 +13,8 @@ import { cn } from "../../lib/utils";
 export type ResizablePanelGroupProps = GroupProps;
 export type ResizablePanelProps = PanelProps;
 export type ResizablePanelHandle = PanelImperativeHandle;
+/** Reads and sets every panel's size at once, as percentages of the group. */
+export type ResizablePanelGroupHandle = GroupImperativeHandle;
 export type ResizableHandleProps = SeparatorProps & {
   /** Which side of the 16px grab area draws the divider line, so it sits on the panel edge. */
   inset?: "start" | "end";

@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 
-import type { ResizablePanelHandle, ResizablePanelProps } from "@shift/ui";
+import type {
+  ResizablePanelGroupHandle,
+  ResizablePanelHandle,
+  ResizablePanelProps,
+} from "@shift/ui";
 
 const SIDEBAR_LAYOUT_ANIMATION_DURATION_MS = 150;
 const STORAGE_KEY = "shift:sidebar-layout";
@@ -47,6 +51,7 @@ export const useSidebarLayout = (view: "home" | "editor") => {
     right: useRef<ResizablePanelHandle>(null),
     agent: useRef<ResizablePanelHandle>(null),
   };
+  const groupRef = useRef<ResizablePanelGroupHandle>(null);
   const contentRefs = {
     left: useRef<HTMLDivElement>(null),
     right: useRef<HTMLDivElement>(null),
@@ -140,9 +145,16 @@ export const useSidebarLayout = (view: "home" | "editor") => {
     // The content keeps its width while the panel animates, so it clips instead of reflowing.
     content.style.width = `${collapsed ? size : content.getBoundingClientRect().width}px`;
     group.classList.add("sidebar-layout-animating");
-    if (collapsed) panel.resize(size);
-    else panel.collapse();
-    commit({ ...layoutRef.current!, [side]: { size, collapsed: !collapsed } });
+    const next = { ...layoutRef.current!, [side]: { size, collapsed: !collapsed } };
+    // Resizing one panel trades space with its neighbour, which may be another
+    // sidebar (the right sidebar beside the agent panel) and would collapse it.
+    // Setting the whole layout at once keeps every sidebar at its width and
+    // gives or takes the difference from the centre panel.
+    if (!setGroupLayout(next, group)) {
+      if (collapsed) panel.resize(size);
+      else panel.collapse();
+    }
+    commit(next);
 
     if (animationTimeoutRef.current !== null) window.clearTimeout(animationTimeoutRef.current);
     animationTimeoutRef.current = window.setTimeout(() => {
@@ -150,6 +162,30 @@ export const useSidebarLayout = (view: "home" | "editor") => {
       if (!panel.isCollapsed()) content.style.width = "";
       animationTimeoutRef.current = null;
     }, SIDEBAR_LAYOUT_ANIMATION_DURATION_MS);
+  };
+
+  /** Applies `layout` to the whole group in one step; false when the group can't. */
+  const setGroupLayout = (layout: SidebarLayout, group: HTMLElement): boolean => {
+    const handle = groupRef.current;
+    if (!handle) return false;
+
+    const width = group.getBoundingClientRect().width;
+    const current = handle.getLayout();
+    const sidebarIds = new Map<string, Side>(SIDES.map((side) => [`${view}-${side}-sidebar`, side]));
+    const centre = Object.keys(current).find((id) => !sidebarIds.has(id));
+    if (!centre || width <= 0) return false;
+
+    const percent: Record<string, number> = {};
+    let used = 0;
+    for (const [id, side] of sidebarIds) {
+      if (!(id in current)) continue;
+      const share = layout[side].collapsed ? 0 : (layout[side].size / width) * 100;
+      percent[id] = share;
+      used += share;
+    }
+    percent[centre] = Math.max(0, 100 - used);
+    handle.setLayout(percent);
+    return true;
   };
 
   const resetSidebar = (side: Side) => {
@@ -181,6 +217,8 @@ export const useSidebarLayout = (view: "home" | "editor") => {
     rightSidebarOpen: open.right,
     toggleLeftSidebar: () => toggleSidebar("left"),
     toggleRightSidebar: () => toggleSidebar("right"),
+    /** Pass to the ResizablePanelGroup, so toggling sets every panel's width at once. */
+    groupRef,
     agentContentRef: contentRefs.agent,
     agentOpen: open.agent,
     toggleAgent: () => toggleSidebar("agent"),

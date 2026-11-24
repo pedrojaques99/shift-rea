@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronRight, Plus } from "lucide-react";
 import {
-  ArrowRight,
   Button,
   ChevronDown,
-  Plus,
   ScrollArea,
   Select,
   SelectItem,
@@ -14,18 +13,19 @@ import {
   SelectPortal,
   SelectPositioner,
   SelectTrigger,
-  Square,
-  Textarea,
   Tooltip,
-  cn,
 } from "@shift/ui";
+import { PromptComposer } from "@/components/visant/ui/prompt-composer";
+import { SoftwareGlyph, softwareFromTool } from "@/components/visant/ui/software-glyph";
+import { WorkingGlyph } from "@/components/visant/ui/working-glyph";
 import { useAgentChat } from "@/hooks/useAgentChat";
 import type { ChatEntry } from "@/types/agentChat";
+import { Markdown } from "./Markdown";
 
-/** Starting points that show what the agent can do with the open font. */
 /** The model option that leaves the provider's own default. */
 const DEFAULT_MODEL = "__default__";
 
+/** Starting points that show what the agent can do with the open font. */
 const SUGGESTIONS = [
   "Draw the O in the style of the H",
   "Check the font and fix what you find",
@@ -33,9 +33,12 @@ const SUGGESTIONS = [
   "Build Aacute, Eacute and Oacute from components",
 ];
 
+type Tool = Extract<ChatEntry, { kind: "tool" }>;
+
 /**
- * The agent chat: the user's signed-in Claude Code or Codex works on the open
- * font through Shift, and every change it makes is an undoable edit.
+ * The agent chat, built from the Visant kit (@visant/prompt-composer,
+ * software-glyph, working-glyph): the user's signed-in agent, or their own API
+ * key, works on the open font through Shift, and every change is one undo step.
  */
 export function AgentChatPanel() {
   const chat = useAgentChat();
@@ -49,24 +52,17 @@ export function AgentChatPanel() {
     if (element) element.scrollTop = element.scrollHeight;
   }, [chat.entries.length, chat.running]);
 
-  const submit = async (text: string) => {
-    if (!text.trim() || chat.running) return;
+  const submit = (text: string) => {
+    if (chat.running) return;
 
     setDraft("");
-    await chat.send(text);
-  };
-
-  const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
-    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
-
-    event.preventDefault();
-    void submit(draft);
+    void chat.send(text);
   };
 
   return (
-    <section aria-label="Agent" className="flex h-full min-h-0 flex-col bg-surface">
-      <header className="flex items-center gap-2 border-b border-line-subtle px-3 py-2">
-        <h2 className="text-sm font-medium text-primary">Agent</h2>
+    <section aria-label="Agent" className="visant-kit flex h-full min-h-0 flex-col bg-background">
+      <header className="flex items-center gap-2 border-b border-border px-3 py-2">
+        <h2 className="text-sm font-medium text-foreground">Agent</h2>
         <HeaderSelect
           label="Agent"
           value={chat.provider}
@@ -105,18 +101,27 @@ export function AgentChatPanel() {
           {chat.entries.length === 0 ? (
             <EmptyState
               noProvider={chat.providers.length > 0 && installed.length === 0}
-              onPick={(text) => void submit(text)}
+              onPick={submit}
             />
           ) : null}
-          {chat.entries.map((entry) => (
-            <Entry key={entry.id} entry={entry} />
-          ))}
-          {chat.running ? <Thinking /> : null}
+          {grouped(chat.entries).map((item) =>
+            Array.isArray(item) ? (
+              <Actions key={item[0]!.id} tools={item} />
+            ) : (
+              <Entry key={item.id} entry={item} />
+            ),
+          )}
+          {chat.running ? (
+            <li className="flex items-center gap-2 text-xs text-muted-foreground">
+              <WorkingGlyph size={14} />
+              Working on the font…
+            </li>
+          ) : null}
         </ol>
       </ScrollArea>
 
       {chat.connectionsOff ? (
-        <div className="flex items-center gap-2 border-t border-line-subtle px-3 py-2 text-ui text-secondary">
+        <div className="flex items-center gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
           <span className="flex-1">The agent reaches your font through agent connections.</span>
           <Button variant="outline" size="sm" onClick={() => void chat.allowConnections()}>
             Turn on
@@ -124,89 +129,123 @@ export function AgentChatPanel() {
         </div>
       ) : null}
 
-      <form
-        className="flex items-end gap-2 border-t border-line-subtle p-2"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void submit(draft);
-        }}
-      >
-        <Textarea
-          aria-label="Message the agent"
-          placeholder="Ask the agent to draw, space, kern or check…"
-          rows={2}
+      <div className="border-t border-border p-2">
+        <PromptComposer
           value={draft}
-          className="max-h-40 min-h-9 flex-1 resize-none"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={onKeyDown}
+          onValueChange={setDraft}
+          onSubmit={() => submit(draft)}
+          onStop={() => void chat.stop()}
+          status={chat.running ? "streaming" : "ready"}
+          canSubmit={!chat.connectionsOff && (draft.trim() !== "" || chat.attachments.length > 0)}
+          attachments={chat.attachments.map(({ id, name, preview }) => ({
+            id,
+            label: name,
+            preview: preview ?? undefined,
+          }))}
+          onRemoveAttachment={chat.removeAttachment}
+          onAttachFiles={(files) => void chat.attachFiles(files)}
+          accept="image/*,.svg,.pdf,.glyphs,.ufo,.ttf,.otf"
+          minRows={2}
+          placeholder="Ask the agent to draw, space, kern or check…"
+          label="Message the agent"
         />
-        {chat.running ? (
-          <Tooltip content="Stop">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Stop"
-              onClick={() => void chat.stop()}
-            >
-              <Square className="h-3 w-3" aria-hidden />
-            </Button>
-          </Tooltip>
-        ) : (
-          <Tooltip content="Send (Enter)">
-            <Button
-              type="submit"
-              variant="primary"
-              size="icon"
-              aria-label="Send"
-              aria-disabled={!draft.trim() || chat.connectionsOff}
-            >
-              <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-            </Button>
-          </Tooltip>
-        )}
-      </form>
+      </div>
     </section>
   );
 }
 
-function Entry({ entry }: { entry: ChatEntry }) {
+/** Consecutive tool calls fold into one row: the reply matters, not each call. */
+function grouped(entries: readonly ChatEntry[]): (Exclude<ChatEntry, Tool> | Tool[])[] {
+  const out: (Exclude<ChatEntry, Tool> | Tool[])[] = [];
+  for (const entry of entries) {
+    const last = out.at(-1);
+    if (entry.kind !== "tool") {
+      out.push(entry);
+      continue;
+    }
+    if (Array.isArray(last)) last.push(entry);
+    else out.push([entry]);
+  }
+  return out;
+}
+
+/** A run of Shift calls, collapsed to their count; open to see each call and what it did. */
+function Actions({ tools }: { tools: readonly Tool[] }) {
+  const read = tools.map((tool) => ({ tool, ...softwareFromTool(tool.name) }));
+  const softwares = [
+    ...new Map(read.map((r) => [`${r.software.id}:${r.software.name}`, r.software])).values(),
+  ];
+  return (
+    <li>
+      <details className="group text-xs text-muted-foreground">
+        <summary className="flex w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md py-0.5 pr-1.5 hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <ChevronRight className="size-3 flex-none transition-transform group-open:rotate-90" />
+          <span className="flex flex-none items-center gap-1 text-foreground/70">
+            {softwares.slice(0, 4).map((software) => (
+              <SoftwareGlyph
+                key={`${software.id}:${software.name}`}
+                software={software}
+                size={12}
+              />
+            ))}
+          </span>
+          <span className="flex-none">
+            {tools.length === 1 ? "1 action" : `${tools.length} actions`}
+          </span>
+        </summary>
+        <ol className="mt-1 ml-1.5 flex flex-col gap-1 border-l border-border pl-3">
+          {read.map(({ tool, software, action }) => (
+            <li
+              key={tool.id}
+              className="flex min-w-0 items-center gap-1.5"
+              title={`${tool.name} ${tool.summary}`}
+            >
+              <span className="flex flex-none text-foreground/70">
+                <SoftwareGlyph software={software} size={12} />
+              </span>
+              <span className="flex-none text-foreground/80">{action || tool.name}</span>
+              {tool.summary ? (
+                <span className="min-w-0 truncate font-mono text-muted-foreground/70">
+                  {tool.summary}
+                </span>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      </details>
+    </li>
+  );
+}
+
+function Entry({ entry }: { entry: Exclude<ChatEntry, Tool> }) {
   switch (entry.kind) {
     case "user":
       return (
-        <li className="ml-8 self-end whitespace-pre-wrap rounded-lg bg-hover px-3 py-2 text-sm text-primary">
-          {entry.text}
+        <li className="ml-8 rounded-lg bg-muted/60 px-3 py-2">
+          {entry.text ? <Markdown>{entry.text}</Markdown> : null}
+          {entry.attachments.length ? (
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {entry.attachments.join(" · ")}
+            </span>
+          ) : null}
         </li>
       );
     case "agent":
       return (
-        <li className="whitespace-pre-wrap text-sm leading-relaxed text-primary">{entry.text}</li>
-      );
-    case "tool":
-      return (
-        <li className="flex min-w-0 items-center gap-1.5 text-ui text-muted">
-          <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-          <span className="shrink-0 font-mono">{entry.name}</span>
-          {entry.summary ? (
-            <span className="truncate text-secondary">· {entry.summary}</span>
-          ) : null}
+        <li>
+          <Markdown>{entry.text}</Markdown>
         </li>
       );
     case "error":
       return (
-        <li role="alert" className="text-ui text-error">
+        <li
+          role="alert"
+          className="rounded-md border border-destructive/30 px-3 py-2 text-xs text-destructive"
+        >
           {entry.text}
         </li>
       );
   }
-}
-
-function Thinking() {
-  return (
-    <li className="flex items-center gap-1 text-ui text-muted" aria-label="The agent is working">
-      <span className="animate-pulse">Working…</span>
-    </li>
-  );
 }
 
 function EmptyState({
@@ -218,17 +257,17 @@ function EmptyState({
 }) {
   if (noProvider) {
     return (
-      <li className="text-ui text-secondary">
-        Install Claude Code, Codex, agy or OpenCode and sign in; the agent uses your own
-        subscription.
+      <li className="text-xs text-muted-foreground">
+        Install Claude Code, Codex, agy or OpenCode and sign in, or add your own API key in Settings
+        → Agents.
       </li>
     );
   }
 
   return (
     <li className="flex flex-col gap-2">
-      <p className="text-ui text-secondary">
-        Ask in your own words. Each change is one undo step; Ctrl+Z takes it back.
+      <p className="text-xs text-muted-foreground">
+        Ask in your own words, attach a sketch or a reference. Each change is one undo step.
       </p>
       <div className="flex flex-wrap gap-1.5">
         {SUGGESTIONS.map((text) => (
@@ -265,7 +304,7 @@ function HeaderSelect<Value extends string>({
         if (next !== null) onChange(next);
       }}
     >
-      <SelectTrigger variant="field" aria-label={label} className={cn("h-6 w-auto min-w-0")}>
+      <SelectTrigger variant="field" aria-label={label} className="h-6 w-auto min-w-0">
         <span className="truncate text-ui">{current}</span>
         <span aria-hidden className="flex shrink-0 text-muted">
           <ChevronDown className="h-3 w-3" strokeWidth={1.75} />

@@ -2,11 +2,13 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { ChatEvent, ChatProvider, ChatProviderId } from "@shared/agent/chat";
 import { getShiftHost } from "@/host/shiftHost";
 import { useAgentConnections } from "@/hooks/useAgentConnections";
-import type { AgentChatView, ChatEntry } from "@/types/agentChat";
+import type { AgentChatView, ChatAttachment, ChatEntry } from "@/types/agentChat";
 
 /** What the chat panel can do. */
 export interface AgentChatActions {
   send(text: string): Promise<void>;
+  attachFiles(files: readonly File[]): Promise<void>;
+  removeAttachment(id: string): void;
   stop(): Promise<void>;
   /** Starts a fresh conversation with the current provider. */
   reset(): void;
@@ -67,6 +69,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
   const [provider, setProviderId] = useState<ChatProviderId>("claude");
   const [model, setModelState] = useState<string | null>(null);
   const [entries, setEntries] = useState<readonly ChatEntry[]>([]);
+  const [attachments, setAttachments] = useState<readonly ChatAttachment[]>([]);
   const [runId, setRunId] = useState<string | null>(null);
   // Session ids are read only when sending, never rendered.
   const sessions = useRef<Partial<Record<ChatProviderId, string>>>({});
@@ -120,15 +123,21 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
   const send = useCallback(
     async (text: string) => {
       const prompt = text.trim();
-      if (!prompt || runId) return;
+      if ((!prompt && attachments.length === 0) || runId) return;
 
-      setEntries((list) => [...list, { id: entryId(), kind: "user", text: prompt }]);
+      const sent = attachments;
+      setAttachments([]);
+      setEntries((list) => [
+        ...list,
+        { id: entryId(), kind: "user", text: prompt, attachments: sent.map(({ name }) => name) },
+      ]);
       try {
         const run = await getShiftHost().agentChat.send({
           provider,
           prompt,
           sessionId: sessions.current[provider] ?? null,
           model,
+          attachments: sent.map(({ path }) => path),
         });
         activeRun.current = run.runId;
         setRunId(run.runId);
@@ -140,7 +149,7 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
         setEntries((list) => [...list, { id: entryId(), kind: "error", text: message }]);
       }
     },
-    [provider, model, runId, receive],
+    [provider, model, runId, receive, attachments],
   );
 
   const stop = useCallback(async () => {
@@ -155,6 +164,24 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
     delete sessions.current[provider];
     setEntries([]);
   }, [provider]);
+
+  const attachFiles = useCallback(async (files: readonly File[]) => {
+    for (const file of files) {
+      try {
+        const data = new Uint8Array(await file.arrayBuffer());
+        const path = await getShiftHost().agentChat.attach(file.name, data);
+        const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+        setAttachments((list) => [...list, { id: entryId(), name: file.name, path, preview }]);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        setEntries((list) => [...list, { id: entryId(), kind: "error", text: message }]);
+      }
+    }
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setAttachments((list) => list.filter((attachment) => attachment.id !== id));
+  }, []);
 
   const setProvider = useCallback(
     (next: ChatProviderId) => {
@@ -183,6 +210,9 @@ export function useAgentChat(): AgentChatView & AgentChatActions {
     entries,
     running: runId !== null,
     connectionsOff: connections !== null && connections.status !== "listening",
+    attachments,
+    attachFiles,
+    removeAttachment,
     send,
     stop,
     reset,

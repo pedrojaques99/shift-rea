@@ -95,7 +95,7 @@ export class AgentChat {
       });
     }
 
-    const prompt = adapter.prompt(request.prompt, invocation);
+    const prompt = adapter.prompt(withAttachments(request), invocation);
     const runId = crypto.randomUUID();
     const child = spawn(command[0], [...command.slice(1), ...adapter.args(invocation, prompt)], {
       cwd: this.#workDir,
@@ -143,6 +143,7 @@ export class AgentChat {
       {
         model: request.model,
         prompt: request.prompt,
+        attachments: request.attachments,
         sessionId: request.sessionId,
         serverName: target.serverName,
         url: target.url,
@@ -151,6 +152,23 @@ export class AgentChat {
       onEvent,
     );
     return { runId };
+  }
+
+  /**
+   * Saves a file the user attached, under the chat's working directory, and
+   * returns its path: the agent reads it from there.
+   */
+  attach(name: string, data: Uint8Array): string {
+    const directory = path.join(this.#workDir, "attachments");
+    fs.mkdirSync(directory, { recursive: true });
+    const safe =
+      path
+        .basename(name)
+        .replace(/[^\w.-]+/g, "_")
+        .slice(-80) || "file";
+    const file = path.join(directory, `${crypto.randomUUID().slice(0, 8)}-${safe}`);
+    fs.writeFileSync(file, data);
+    return file;
   }
 
   /** Stops a run; nothing happens when it already ended. */
@@ -196,6 +214,15 @@ function listModels(provider: CommandProviderId, command: string[]): string[] {
       : [];
   modelCache.set(provider, models);
   return models;
+}
+
+/** The message with the files the user attached named at its end, for the agent to read. */
+export function withAttachments({ prompt, attachments }: ChatSendRequest): string {
+  if (attachments.length === 0) return prompt;
+
+  const newline = String.fromCharCode(10);
+  const list = attachments.map((file) => `- ${file}`).join(newline);
+  return [prompt, "", "Attached files (read them as references):", list].join(newline);
 }
 
 /** What the agent should know: which window, and how to work on its font. */

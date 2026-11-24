@@ -6,4 +6,5 @@ export {
   type ResizablePanelProps,
   type ResizableHandleProps,
   type ResizablePanelHandle,
+  type ResizablePanelGroupHandle,
 } from "./Resizable";

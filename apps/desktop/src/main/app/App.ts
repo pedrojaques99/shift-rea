@@ -610,6 +610,9 @@ export class App {
       return run;
     });
     ipc.handle(ipcMain, "agentChat.stop", (_event, runId) => this.#agentChat.stop(runId));
+    ipc.handle(ipcMain, "agentChat.attach", (_event, name, data) =>
+      this.#agentChat.attach(name, data),
+    );
     ipc.handle(ipcMain, "agentKeys.state", () => this.#agentKeys.state());
     ipc.handle(ipcMain, "agentKeys.set", (_event, vendor, key) => {
       const state = this.#agentKeys.set(vendor, key);

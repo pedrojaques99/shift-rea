@@ -141,6 +141,7 @@ const EditorLayout = ({ children }: { children: ReactNode }) => {
     rightSidebarOpen,
     resetLeftSidebar,
     resetRightSidebar,
+    groupRef,
     agentContentRef,
     agentOpen,
     toggleAgent,
@@ -176,6 +177,7 @@ const EditorLayout = ({ children }: { children: ReactNode }) => {
       />
       <ResizablePanelGroup
         id="editor-layout-panels"
+        groupRef={groupRef}
         orientation="horizontal"
         onLayoutChanged={onLayoutChanged}
         className="flex-1 overflow-hidden"

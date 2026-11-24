@@ -74,6 +74,7 @@ describe("the agent chat with the user's own API key", () => {
         {
           model: "anthropic:test",
           prompt: "Draw an O",
+          attachments: [],
           sessionId: null,
           serverName: "shift-dev",
           url,
@@ -102,6 +103,7 @@ describe("the agent chat with the user's own API key", () => {
         {
           model: "anthropic:claude",
           prompt: "hi",
+          attachments: [],
           sessionId: null,
           serverName: "shift-dev",
           url: "http://127.0.0.1:1/mcp",

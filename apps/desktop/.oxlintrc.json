@@ -1,6 +1,10 @@
 {
-  "extends": ["../../.oxlintrc.json"],
-  "jsPlugins": ["@shadcn/lint"],
+  "extends": [
+    "../../.oxlintrc.json"
+  ],
+  "jsPlugins": [
+    "@shadcn/lint"
+  ],
   "settings": {
     "shadcn": {
       "ui": "@shift/ui",
@@ -13,11 +17,15 @@
       {
         "patterns": [
           {
-            "group": ["@shift/types/src/*"],
+            "group": [
+              "@shift/types/src/*"
+            ],
             "message": "Import from @shift/types, not from its source files."
           },
           {
-            "group": ["@/bridge/native"],
+            "group": [
+              "@/bridge/native"
+            ],
             "message": "Do not import getNative() directly. Use NativeBridge instead."
           }
         ]
@@ -26,7 +34,9 @@
     "shadcn/no-unknown-classes": [
       "error",
       {
-        "allow": ["shift-editor-shell"]
+        "allow": [
+          "shift-editor-shell"
+        ]
       }
     ],
     "shadcn/no-arbitrary-values": [
@@ -61,7 +71,9 @@
     "shadcn/no-restyle": [
       "error",
       {
-        "allow": ["layout"],
+        "allow": [
+          "layout"
+        ],
         "contracts": [
           {
             "pattern": "^Button$",
@@ -102,11 +114,23 @@
           },
           {
             "pattern": "^DialogPopup$",
-            "allow": ["layout", "border", "border-line-subtle", "bg-surface-muted", "p-4", "p-6"]
+            "allow": [
+              "layout",
+              "border",
+              "border-line-subtle",
+              "bg-surface-muted",
+              "p-4",
+              "p-6"
+            ]
           },
           {
             "pattern": "^FieldLabel$",
-            "allow": ["layout", "text-ui", "truncate", "text-sm"]
+            "allow": [
+              "layout",
+              "text-ui",
+              "truncate",
+              "text-sm"
+            ]
           },
           {
             "pattern": "^Toolbar$",
@@ -122,7 +146,10 @@
           },
           {
             "pattern": "^MenuItem$",
-            "allow": ["layout", "gap-6"]
+            "allow": [
+              "layout",
+              "gap-6"
+            ]
           },
           {
             "pattern": "^DialogTitle$",
@@ -137,7 +164,10 @@
           },
           {
             "pattern": "^FieldControl$",
-            "allow": ["layout", "text-ui"]
+            "allow": [
+              "layout",
+              "text-ui"
+            ]
           },
           {
             "pattern": "^Input$",
@@ -154,7 +184,10 @@
           },
           {
             "pattern": "^NumberFieldGroup$",
-            "allow": ["layout", "bg-transparent"]
+            "allow": [
+              "layout",
+              "bg-transparent"
+            ]
           },
           {
             "pattern": "^TabsList$",
@@ -185,63 +218,111 @@
           },
           {
             "pattern": "^TabsPanel$",
-            "allow": ["layout", "px-1", "py-2"]
+            "allow": [
+              "layout",
+              "px-1",
+              "py-2"
+            ]
           },
           {
             "pattern": "^ResizablePanel$",
-            "allow": ["layout"]
+            "allow": [
+              "layout"
+            ]
           },
           {
             "pattern": "^PopoverPopup$",
-            "allow": ["layout", "p-0"]
+            "allow": [
+              "layout",
+              "p-0"
+            ]
           },
           {
             "pattern": "^Progress$",
-            "allow": ["layout", "bg-secondary/30", "duration-200"]
+            "allow": [
+              "layout",
+              "bg-secondary/30",
+              "duration-200"
+            ]
           },
           {
             "pattern": "^Textarea$",
-            "allow": ["layout", "p-3", "font-normal"]
+            "allow": [
+              "layout",
+              "p-3",
+              "font-normal"
+            ]
           },
           {
             "pattern": "^CollapsiblePanel$",
-            "allow": ["layout", "pt-2"]
+            "allow": [
+              "layout",
+              "pt-2"
+            ]
           },
           {
             "pattern": "^CollapsibleTrigger$",
-            "allow": ["layout", "text-secondary", "hover:text-primary"]
+            "allow": [
+              "layout",
+              "text-secondary",
+              "hover:text-primary"
+            ]
           },
           {
             "pattern": "^ToolbarGroup$",
-            "allow": ["layout", "gap-0.5"]
+            "allow": [
+              "layout",
+              "gap-0.5"
+            ]
           },
           {
             "pattern": "^ChevronDown$",
-            "allow": ["layout", "text-primary"]
+            "allow": [
+              "layout",
+              "text-primary"
+            ]
           },
           {
             "pattern": "^MenuCheckboxItem$",
-            "allow": ["layout", "gap-2"]
+            "allow": [
+              "layout",
+              "gap-2"
+            ]
           },
           {
             "pattern": "^MenuPopup$",
-            "allow": ["layout", "p-2"]
+            "allow": [
+              "layout",
+              "p-2"
+            ]
           },
           {
             "pattern": "^Search$",
-            "allow": ["layout", "text-muted"]
+            "allow": [
+              "layout",
+              "text-muted"
+            ]
           },
           {
             "pattern": "^DialogBackdrop$",
-            "allow": ["layout", "bg-surface-muted"]
+            "allow": [
+              "layout",
+              "bg-surface-muted"
+            ]
           },
           {
             "pattern": "^Field$",
-            "allow": ["layout", "gap-1.5"]
+            "allow": [
+              "layout",
+              "gap-1.5"
+            ]
           },
           {
             "pattern": "^Separator$",
-            "allow": ["layout", "bg-secondary/30"]
+            "allow": [
+              "layout",
+              "bg-secondary/30"
+            ]
           }
         ]
       }
@@ -252,16 +333,28 @@
   },
   "overrides": [
     {
-      "files": ["src/renderer/src/components/chrome/Titlebar.tsx"],
+      "files": [
+        "src/renderer/src/components/chrome/Titlebar.tsx"
+      ],
       "rules": {
         "shadcn/no-raw-colors": "off"
       }
     },
     {
-      "files": ["e2e/**/*.ts"],
+      "files": [
+        "e2e/**/*.ts"
+      ],
       "rules": {
-        "eslint/no-empty-pattern": ["warn", { "allowObjectPatternsAsParameters": true }]
+        "eslint/no-empty-pattern": [
+          "warn",
+          {
+            "allowObjectPatternsAsParameters": true
+          }
+        ]
       }
     }
+  ],
+  "ignorePatterns": [
+    "src/renderer/src/components/visant/**"
   ]
 }

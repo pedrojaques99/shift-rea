@@ -167,6 +167,8 @@ export interface ShiftHost {
     /** Sends one message; replies arrive through {@link onEvent}. */
     send: (request: ChatSendRequest) => Promise<ChatRun>;
     stop: (runId: string) => Promise<void>;
+    /** Saves an attached file for the agent; resolves with its path. */
+    attach: (name: string, data: Uint8Array) => Promise<string>;
     /**
      * Subscribes to this window's chat runs.
      *

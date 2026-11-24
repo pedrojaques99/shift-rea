@@ -1,4 +1,6 @@
 import crypto from "node:crypto";
+import fs from "node:fs";
+import path from "node:path";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { createMCPClient } from "@ai-sdk/mcp";
@@ -21,6 +23,8 @@ export interface ApiChatRequest {
   /** `vendor:model`, as {@link ApiChat.models} lists it. */
   model: string;
   prompt: string;
+  /** Files the user attached; images reach the model as images. */
+  attachments: string[];
   sessionId: string | null;
   serverName: string;
   url: string;
@@ -118,7 +122,7 @@ export class ApiChat {
       const tools = await client.tools();
       const messages: ModelMessage[] = [
         ...(this.#history.get(sessionId) ?? []),
-        { role: "user", content: request.prompt },
+        { role: "user", content: userContent(request.prompt, request.attachments) },
       ];
 
       const result = streamText({
@@ -187,6 +191,35 @@ export class ApiChat {
         return createOpenRouter({ apiKey })(model);
     }
   }
+}
+
+const IMAGE_TYPES: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".webp": "image/webp",
+};
+
+/** The user's message: its text, with attached images as images and other files named. */
+function userContent(prompt: string, attachments: readonly string[]): ModelMessage["content"] {
+  if (attachments.length === 0) return prompt;
+
+  const images = attachments.filter((file) => path.extname(file).toLowerCase() in IMAGE_TYPES);
+  const others = attachments.filter((file) => !images.includes(file));
+  const text = others.length
+    ? [prompt, "", "Attached files:", ...others.map((file) => `- ${file}`)].join(
+        String.fromCharCode(10),
+      )
+    : prompt;
+  return [
+    { type: "text", text },
+    ...images.map((file) => ({
+      type: "image" as const,
+      image: fs.readFileSync(file),
+      mediaType: IMAGE_TYPES[path.extname(file).toLowerCase()],
+    })),
+  ] as ModelMessage["content"];
 }
 
 /** A vendor's chat models, from its own model list. */

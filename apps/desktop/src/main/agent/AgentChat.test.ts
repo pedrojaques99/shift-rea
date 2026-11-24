@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import path from "node:path";
 import type { ChatEvent } from "../../shared/agent/chat";
-import { AgentChat } from "./AgentChat";
+import { AgentChat, withAttachments } from "./AgentChat";
 import {
   CHAT_ADAPTERS,
   readAgyLine,
@@ -25,7 +25,7 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
 
     await new Promise<void>((resolve) => {
       chat.send(
-        { provider: "claude", prompt: "draw an O", sessionId: null, model: null },
+        { provider: "claude", prompt: "draw an O", sessionId: null, model: null, attachments: [] },
         TARGET,
         (event) => {
           events.push(event);
@@ -62,6 +62,7 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
       "mcp__shift-dev__shift.describe",
       "mcp__shift-dev__shift.execute",
       "mcp__shift-dev__shift.capture",
+      "Read",
     ]);
     expect(JSON.parse(args[args.indexOf("--mcp-config") + 1])).toEqual({
       mcpServers: { "shift-dev": { type: "http", url: TARGET.url } },
@@ -122,6 +123,25 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
   it("ignores lines that are not events", () => {
     expect(readClaudeLine("warning: something")).toEqual([]);
     expect(readClaudeLine('{"type":"user"}')).toEqual([]);
+  });
+
+  it("names the files the user attached at the end of the message", () => {
+    expect(
+      withAttachments({
+        provider: "claude",
+        prompt: "Trace this",
+        sessionId: null,
+        model: null,
+        attachments: ["C:/chat/attachments/ab-sketch.png"],
+      }),
+    ).toBe(
+      [
+        "Trace this",
+        "",
+        "Attached files (read them as references):",
+        "- C:/chat/attachments/ab-sketch.png",
+      ].join(String.fromCharCode(10)),
+    );
   });
 
   it("reads OpenCode's JSON events, as `opencode run --format json` writes them", () => {
