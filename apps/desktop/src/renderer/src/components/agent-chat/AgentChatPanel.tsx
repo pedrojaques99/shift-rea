@@ -22,6 +22,7 @@ import {
   softwareFromTool,
 } from "@/components/visant/ui/software-glyph";
 import { WorkingGlyph } from "@/components/visant/ui/working-glyph";
+import { useAgentFocus } from "@/hooks/useAgentFocus";
 import { useSignalState } from "@shift/editor/signals";
 import { useAgentChat } from "@/hooks/useAgentChat";
 import { documentViewKey } from "@/lib/workspace/documentViews";
@@ -95,11 +96,12 @@ function ChatBody({ conversation }: { conversation: string | null }) {
     if (element) element.scrollTop = element.scrollHeight;
   }, [chat.entries.length, chat.running]);
 
+  const focus = useAgentFocus();
   const submit = (text: string) => {
     if (chat.running) return;
 
     setDraft("");
-    void chat.send(text);
+    void chat.send(text, focus?.focus ?? null);
   };
 
   return (
@@ -177,6 +179,15 @@ function ChatBody({ conversation }: { conversation: string | null }) {
       ) : null}
 
       <div className="border-t border-border p-2">
+        {focus ? (
+          // Says what "this" means before the user asks: the agent receives the same.
+          <p
+            className="mb-1.5 truncate px-1 text-xs text-muted-foreground"
+            data-testid="agent-focus"
+          >
+            Working on <span className="text-foreground">{focus.label}</span>
+          </p>
+        ) : null}
         <PromptComposer
           value={draft}
           onValueChange={setDraft}

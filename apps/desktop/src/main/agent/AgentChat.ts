@@ -156,7 +156,7 @@ export class AgentChat {
     const runId = this.#api.send(
       {
         model: request.model,
-        prompt: request.prompt,
+        prompt: withFocus(request.prompt, request.focus),
         attachments: request.attachments,
         sessionId: request.sessionId,
         serverName: target.serverName,
@@ -246,12 +246,21 @@ function listModels(provider: CommandProviderId, command: string[]): string[] {
 }
 
 /** The message with the files the user attached named at its end, for the agent to read. */
-export function withAttachments({ prompt, attachments }: ChatSendRequest): string {
-  if (attachments.length === 0) return prompt;
+export function withAttachments({ prompt, attachments, focus }: ChatSendRequest): string {
+  const focused = withFocus(prompt, focus);
+  if (attachments.length === 0) return focused;
 
   const newline = String.fromCharCode(10);
   const list = attachments.map((file) => `- ${file}`).join(newline);
-  return [prompt, "", "Attached files (read them as references):", list].join(newline);
+  return [focused, "", "Attached files (read them as references):", list].join(newline);
+}
+
+/** The message with what the user has open named at its end, so "this" and "these" resolve. */
+export function withFocus(prompt: string, focus: string | null | undefined): string {
+  if (!focus) return prompt;
+
+  const newline = String.fromCharCode(10);
+  return [prompt, "", `In Shift the user has open: ${focus}`].join(newline);
 }
 
 /** What the agent should know: which window, and how to work on its font. */

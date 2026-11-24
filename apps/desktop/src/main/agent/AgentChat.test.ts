@@ -154,6 +154,29 @@ describe("the agent chat runs a signed-in command-line agent against Shift's MCP
     );
   });
 
+  it("names what the user has open after the message, before the attachments", () => {
+    expect(
+      withAttachments({
+        provider: "claude",
+        prompt: "Round these",
+        sessionId: null,
+        model: null,
+        attachments: ["C:/a.png"],
+        focus: "glyph V, source master.Regular; selected: 2 points (p1, p2)",
+        conversation: null,
+      }),
+    ).toBe(
+      [
+        "Round these",
+        "",
+        "In Shift the user has open: glyph V, source master.Regular; selected: 2 points (p1, p2)",
+        "",
+        "Attached files (read them as references):",
+        "- C:/a.png",
+      ].join(String.fromCharCode(10)),
+    );
+  });
+
   it("reads OpenCode's JSON events, as `opencode run --format json` writes them", () => {
     const started = '{"type":"step_start","sessionID":"ses_1","part":{"type":"step-start"}}';
     const text = '{"type":"text","sessionID":"ses_1","part":{"type":"text","text":"ok"}}';

@@ -6,7 +6,8 @@ import type { AgentChatView, ChatAttachment, ChatEntry } from "@/types/agentChat
 
 /** What the chat panel can do. */
 export interface AgentChatActions {
-  send(text: string): Promise<void>;
+  /** Sends `text`; `focus` names what the user has open, for the agent only. */
+  send(text: string, focus?: string | null): Promise<void>;
   attachFiles(files: readonly File[]): Promise<void>;
   removeAttachment(id: string): void;
   stop(): Promise<void>;
@@ -139,7 +140,7 @@ export function useAgentChat(conversation: string | null): AgentChatView & Agent
   );
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, focus: string | null = null) => {
       const prompt = text.trim();
       if ((!prompt && attachments.length === 0) || runId) return;
 
@@ -156,6 +157,7 @@ export function useAgentChat(conversation: string | null): AgentChatView & Agent
           sessionId: sessions.current[provider] ?? null,
           model,
           attachments: sent.map(({ path }) => path),
+          focus,
           conversation,
         });
         activeRun.current = run.runId;

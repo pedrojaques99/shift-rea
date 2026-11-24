@@ -41,6 +41,11 @@ export interface ChatSendRequest {
   /** Files the user attached, as `agentChat.attach` saved them; the agent may read them. */
   attachments: string[];
   /**
+   * What the user has open when they send, e.g. "Glyph V; selected: 3 points (point_a, …)".
+   * It reaches the agent with the message but stays out of the chat and its saved history.
+   */
+  focus?: string | null;
+  /**
    * The conversation this message belongs to, one per document; its history
    * is kept on disk and survives a restart. Null keeps nothing (a preview).
    */
