@@ -22,12 +22,20 @@ import { useSignalState } from "@shift/editor/signals";
 import { useAgentChat } from "@/hooks/useAgentChat";
 import { documentViewKey } from "@/lib/workspace/documentViews";
 import type { Workspace } from "@/workspace/Workspace";
-import { useFontSession } from "@/workspace/WorkspaceContext";
+import { useFont, useFontSession } from "@/workspace/WorkspaceContext";
 import type { ChatEntry } from "@/types/agentChat";
 import { Markdown } from "./Markdown";
 
 /** The model option that leaves the provider's own default. */
 const DEFAULT_MODEL = "__default__";
+
+/** Starting points for a font that has no glyphs yet: the agent builds it. */
+const NEW_FONT_SUGGESTIONS = [
+  "Draw A–Z and a–z as a clean geometric sans",
+  "Set up Regular and Bold masters with a weight axis",
+  "Add the Latin basic character set with empty glyphs",
+  "Draw H, O and n first so we can agree on the style",
+];
 
 /** Starting points that show what the agent can do with the open font. */
 const SUGGESTIONS = [
@@ -278,6 +286,10 @@ function EmptyState({
   noProvider: boolean;
   onPick: (text: string) => void;
 }) {
+  const font = useFont();
+  const glyphs = useSignalState(font.glyphEntriesCell);
+  const suggestions = glyphs.length === 0 ? NEW_FONT_SUGGESTIONS : SUGGESTIONS;
+
   if (noProvider) {
     return (
       <li className="text-xs text-muted-foreground">
@@ -293,7 +305,7 @@ function EmptyState({
         Ask in your own words, attach a sketch or a reference. Each change is one undo step.
       </p>
       <div className="flex flex-wrap gap-1.5">
-        {SUGGESTIONS.map((text) => (
+        {suggestions.map((text) => (
           <Button key={text} variant="outline" size="sm" onClick={() => onPick(text)}>
             {text}
           </Button>
