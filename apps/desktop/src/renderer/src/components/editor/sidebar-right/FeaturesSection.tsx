@@ -225,6 +225,8 @@ const FeatureRow = ({ run, feature, previewing, onPreview }: FeatureRowProps) =>
   return (
     <div className="flex h-6 shrink-0 items-center justify-between gap-2 text-ui">
       <span className="flex min-w-0 items-center gap-1.5">
+        {/* The name reads first for a designer; the tag follows, still the preview target. */}
+        {name ? <span className="truncate text-primary">{name}</span> : null}
         <button
           type="button"
           data-feature-tag=""
@@ -232,7 +234,8 @@ const FeatureRow = ({ run, feature, previewing, onPreview }: FeatureRowProps) =>
           aria-pressed={previewing}
           className={cn(
             TAG_PILL,
-            "cursor-pointer text-primary",
+            "shrink-0 cursor-pointer",
+            name ? "text-muted" : "text-primary",
             previewing ? "bg-icon-button-hover" : "hover:bg-hover",
           )}
           onPointerEnter={() => highlight(true)}
@@ -241,7 +244,6 @@ const FeatureRow = ({ run, feature, previewing, onPreview }: FeatureRowProps) =>
         >
           {feature.tag}
         </button>
-        {name ? <span className="truncate text-primary">{name}</span> : null}
       </span>
       <Tooltip content={label}>
         <button
