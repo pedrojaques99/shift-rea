@@ -65,6 +65,10 @@ export const SourcesSection = ({
         </>
       }
     >
+      {/* Says, in a designer's words, what this list is and how it differs from the other. */}
+      <p className="pb-1 pl-2 text-ui text-muted">
+        The drawings you edit. Every style is mixed from them, and kerning is set on them.
+      </p>
       <Sources canAuthor={canAuthor} outlineControls={outlineControls} />
     </Section>
   );

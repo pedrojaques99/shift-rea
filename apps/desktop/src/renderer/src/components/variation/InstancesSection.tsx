@@ -61,6 +61,11 @@ export const InstancesSection = ({
         </>
       }
     >
+      {/* Says, in a designer's words, what this list is and how it differs from the other. */}
+      <p className="pb-1 pl-2 text-ui text-muted">
+        The named styles the font ships, as Figma lists them. Each is mixed from the sources, with
+        nothing to draw.
+      </p>
       <Instances canAuthor={canAuthor} outlineControls={outlineControls} />
     </Section>
   );
