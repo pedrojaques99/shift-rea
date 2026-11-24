@@ -9,10 +9,10 @@ use shift_backends::{BinaryEncoding, BinaryEncodings, FontExporter};
 use shift_font::test_support::sample_variable_font;
 use skrifa::{FontRef, Tag};
 
-fn has_table(bytes: &[u8], tag: &[u8; 4]) -> bool {
+fn has_table(bytes: &[u8], tag: [u8; 4]) -> bool {
     FontRef::new(bytes)
         .unwrap()
-        .table_data(Tag::new(tag))
+        .table_data(Tag::new(&tag))
         .is_some()
 }
 
@@ -57,14 +57,14 @@ fn static_instances_carry_ttfautohint_instructions_and_the_variable_font_stays_u
     assert!(!hinted.is_empty());
     for bytes in &hinted {
         assert!(
-            has_table(bytes, b"fpgm"),
+            has_table(bytes, *b"fpgm"),
             "a hinted static font has a font program"
         );
     }
     let variable = std::fs::read(variable).unwrap();
-    assert!(has_table(&variable, b"fvar"));
+    assert!(has_table(&variable, *b"fvar"));
     assert!(
-        !has_table(&variable, b"fpgm"),
+        !has_table(&variable, *b"fpgm"),
         "ttfautohint can't hint variable fonts"
     );
 }

@@ -415,6 +415,29 @@ fn filled_counters(outlines: &[Polygon]) -> Vec<(usize, usize)> {
     filled
 }
 
+/// How close, in font units, a point may come to a metric without sitting on
+/// it before it reads as a near miss.
+const NEAR_METRIC: f64 = 2.0;
+
+/// How far, in font units, a curve must pass its ends before its extreme
+/// needs a point of its own; less is rounding.
+const EXTREME_TOLERANCE: f64 = 1.0;
+
+/// Where `segment` passes both its ends horizontally or vertically, if it does.
+fn missing_extreme(segment: PathSeg) -> Option<kurbo::Point> {
+    let (start, end) = (segment.start(), segment.end());
+    segment.extrema().into_iter().find_map(|t| {
+        if t <= 0.0 || t >= 1.0 {
+            return None;
+        }
+        let point = segment.eval(t);
+        let beyond = |value: f64, a: f64, b: f64| {
+            value > a.max(b) + EXTREME_TOLERANCE || value < a.min(b) - EXTREME_TOLERANCE
+        };
+        (beyond(point.x, start.x, end.x) || beyond(point.y, start.y, end.y)).then_some(point)
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -517,27 +540,4 @@ mod tests {
 
         assert!(filled_counters(&[left, right]).is_empty());
     }
-}
-
-/// How close, in font units, a point may come to a metric without sitting on
-/// it before it reads as a near miss.
-const NEAR_METRIC: f64 = 2.0;
-
-/// How far, in font units, a curve must pass its ends before its extreme
-/// needs a point of its own; less is rounding.
-const EXTREME_TOLERANCE: f64 = 1.0;
-
-/// Where `segment` passes both its ends horizontally or vertically, if it does.
-fn missing_extreme(segment: PathSeg) -> Option<kurbo::Point> {
-    let (start, end) = (segment.start(), segment.end());
-    segment.extrema().into_iter().find_map(|t| {
-        if t <= 0.0 || t >= 1.0 {
-            return None;
-        }
-        let point = segment.eval(t);
-        let beyond = |value: f64, a: f64, b: f64| {
-            value > a.max(b) + EXTREME_TOLERANCE || value < a.min(b) - EXTREME_TOLERANCE
-        };
-        (beyond(point.x, start.x, end.x) || beyond(point.y, start.y, end.y)).then_some(point)
-    })
 }
