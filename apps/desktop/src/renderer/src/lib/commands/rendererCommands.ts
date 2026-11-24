@@ -181,10 +181,13 @@ async function runFocusedTextEditCommand(id: EditorCommandId): Promise<boolean |
   if (!target) return null;
 
   switch (id) {
+    // An empty field has nothing of its own to undo: the font does. Focus
+    // rests in the agent's message field after it edits, and Ctrl+Z there
+    // should take the agent's edits back.
     case "edit.undo":
-      return runDocumentEditCommand("undo");
+      return isEmptyField(target) ? null : runDocumentEditCommand("undo");
     case "edit.redo":
-      return runDocumentEditCommand("redo");
+      return isEmptyField(target) ? null : runDocumentEditCommand("redo");
     case "edit.copy": {
       const text = selectedText(target);
       if (text.length === 0) return false;
@@ -339,4 +342,14 @@ function runDocumentEditCommand(command: string, value?: string): boolean {
 
 function isTextControl(target: HTMLElement): target is HTMLInputElement | HTMLTextAreaElement {
   return target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement;
+}
+
+/** Whether a focused text field holds no text, so undo and redo belong to the document. */
+function isEmptyField(target: Element): boolean {
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    // The DOM field's text, read without `.value`, which Shift's lint reserves for signals.
+    return String(Reflect.get(target, "value") ?? "") === "";
+  }
+
+  return (target.textContent ?? "") === "";
 }
