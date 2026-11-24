@@ -93,13 +93,17 @@ export const WindowTabsBar = () => {
           ))}
         </SortableList>
       </DocumentTabs>
-      <Tooltip content="New page">
+      <Tooltip content="New text page">
         <Button
           variant="toolbar"
           size="icon-sm"
-          aria-label="New page"
+          aria-label="New text page"
           className="shrink-0"
-          onClick={() => showPage(editor.pages.create().id, { newTab: true })}
+          onClick={() => {
+            // A page is where a designer tests the font: open it ready to type.
+            showPage(editor.pages.create().id, { newTab: true });
+            editor.setActiveTool("text");
+          }}
         >
           <PlusIcon className="h-3 w-3" />
         </Button>
