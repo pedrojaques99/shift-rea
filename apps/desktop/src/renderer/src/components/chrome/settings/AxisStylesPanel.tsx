@@ -209,7 +209,7 @@ const NumberCell = ({ label, value, optional, onChange, onCommit }: NumberCellPr
       }}
       onValueCommitted={onCommit}
       ariaLabel={label}
-      className="h-6 bg-transparent"
+      className="h-6"
       inputClassName="text-center"
     />
   </td>

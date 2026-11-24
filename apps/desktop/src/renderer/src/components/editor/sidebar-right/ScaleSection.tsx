@@ -10,6 +10,7 @@ import { Bounds, Mat } from "@shift/geo";
 import ScaleIcon from "@/assets/sidebar-right/scale.svg";
 import { useSelectionBounds } from "@/hooks/useSelectionBounds";
 import { PositionTargets } from "@shift/editor/model";
+import { scrubSelectionScale } from "@/lib/editor/selectionScrub";
 
 export const ScaleSection = () => {
   const editor = useEditor();
@@ -91,6 +92,28 @@ export const ScaleSection = () => {
     [anchor, componentSelection, editable, isEditing, layer, selectedPointIds, selectionBounds],
   );
 
+  const scrubSize = (dimension: "width" | "height") => {
+    if (!editable || !selectionBounds) return null;
+
+    const current =
+      dimension === "width" ? Bounds.width(selectionBounds) : Bounds.height(selectionBounds);
+    if (current === 0) return null;
+
+    return scrubSelectionScale(editor, selectionBounds, anchor, (value) => ({
+      x: value / current,
+      y: value / current,
+    }));
+  };
+
+  const scrubScale = () => {
+    if (!editable || !selectionBounds) return null;
+
+    return scrubSelectionScale(editor, selectionBounds, anchor, (value) => ({
+      x: value,
+      y: value,
+    }));
+  };
+
   return (
     <SidebarSection title="Scale">
       <div className="flex flex-col gap-2">
@@ -102,6 +125,7 @@ export const ScaleSection = () => {
             value={selectionBounds ? Math.round(Bounds.width(selectionBounds)) : 0}
             disabled={!editable}
             onValueCommit={(v) => handleSizeChange("width", v)}
+            onScrubStart={() => scrubSize("width")}
           />
           <SidebarNumberField
             ariaLabel="Height"
@@ -109,6 +133,7 @@ export const ScaleSection = () => {
             value={selectionBounds ? Math.round(Bounds.height(selectionBounds)) : 0}
             disabled={!editable}
             onValueCommit={(v) => handleSizeChange("height", v)}
+            onScrubStart={() => scrubSize("height")}
           />
         </div>
       </div>
@@ -124,7 +149,10 @@ export const ScaleSection = () => {
             suffix="x"
             inputClassName="pl-1 pr-0"
             disabled={!editable}
+            step={0.01}
+            min={0.01}
             onValueCommit={handleScaleChange}
+            onScrubStart={scrubScale}
           />
         </div>
 

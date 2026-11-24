@@ -1,5 +1,4 @@
-import { useState } from "react";
-import { NumberField, NumberFieldGroup, NumberFieldInput, cn } from "@shift/ui";
+import { ScrubInput } from "@shift/ui";
 
 interface SettingsNumberFieldProps {
   value: number | null;
@@ -11,6 +10,11 @@ interface SettingsNumberFieldProps {
   disabled?: boolean;
 }
 
+/**
+ * A numeric settings field: drag it sideways to scrub, or click to type a
+ * number or a sum such as `600+20`. Each commit, typed or once per scrub,
+ * updates the draft and saves it.
+ */
 export const SettingsNumberField = ({
   value,
   onValueChange,
@@ -20,27 +24,24 @@ export const SettingsNumberField = ({
   inputClassName,
   disabled,
 }: SettingsNumberFieldProps) => {
-  const [isFocused, setIsFocused] = useState(false);
+  const commit = async (next: number | null) => {
+    onValueChange(next);
+    await onValueCommitted();
+  };
 
   return (
-    <NumberField
-      format={{ maximumFractionDigits: 20, useGrouping: false }}
+    <ScrubInput
+      aria-label={ariaLabel}
       value={value}
-      onValueChange={onValueChange}
-      onValueCommitted={async () => {
-        await onValueCommitted();
-      }}
+      onValueCommit={commit}
+      onClear={() => commit(null)}
+      tooltip={false}
+      maximumFractionDigits={4}
+      variant="plain"
+      size="md"
       disabled={disabled}
-    >
-      <NumberFieldGroup variant="plain" className={cn("h-8", className)}>
-        <NumberFieldInput
-          aria-label={ariaLabel}
-          {...(!isFocused && { value: value === null ? "" : String(Number(value.toFixed(2))) })}
-          onFocus={() => setIsFocused(true)}
-          onBlur={() => setIsFocused(false)}
-          className={inputClassName}
-        />
-      </NumberFieldGroup>
-    </NumberField>
+      className={className}
+      inputClassName={inputClassName}
+    />
   );
 };

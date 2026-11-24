@@ -1,5 +1,5 @@
-import { useRef, useState, type ReactNode } from "react";
-import { NumberField, NumberFieldGroup, NumberFieldInput, Tooltip } from "@shift/ui";
+import type { ReactNode } from "react";
+import { ScrubInput, type ScrubSession } from "@shift/ui";
 import { NUDGES_VALUES } from "@shift/editor/types";
 
 interface SidebarNumberFieldProps {
@@ -7,8 +7,10 @@ interface SidebarNumberFieldProps {
   ariaLabel: string;
   /** The value shown while the field is not being typed in; `null` shows `placeholder`. */
   value: number | null;
-  /** Called with each committed value: on Enter, on blur, and on every arrow step. */
+  /** Called with each committed value: on Enter, on blur, on every arrow step, and once per scrub without `onScrubStart`. */
   onValueCommit: (value: number) => void;
+  /** Opens a live preview for a scrub, committed as one undo step on release. */
+  onScrubStart?: () => ScrubSession | null;
   /** Called when the field is emptied and committed; without it, emptying keeps the value. */
   onClear?: () => void;
   /** A short leading label such as "W", or an icon. */
@@ -21,106 +23,57 @@ interface SidebarNumberFieldProps {
   placeholder?: string;
   /** Classes for the input, such as `text-right` for a column of numbers. */
   inputClassName?: string;
+  /** The scrub and arrow step; Shift steps ten times it, Alt a tenth. */
+  step?: number;
+  min?: number;
+  max?: number;
   disabled?: boolean;
 }
 
 /**
- * A numeric sidebar field over the shared `NumberField`.
+ * A numeric sidebar field: drag it sideways to scrub, or click to type.
  *
  * @remarks
- * Arrow keys step by 1 and Shift by 10, as Base UI does; Cmd or Ctrl steps by 100,
- * matching canvas nudges. Arrow keys do nothing while the value is `null`,
- * since there is no number to step from. Enter commits and leaves the field, Escape leaves it
- * without committing what was typed. While focused, the sidebar keeps keyboard
- * focus and editor shortcuts do not fire.
+ * Arrow keys and scrubbing step by 1, Shift by 10 and Alt by 0.1; Cmd or
+ * Ctrl arrow steps by 100, matching canvas nudges. Typed sums such as
+ * `600+20` or `*2` are worked out. Enter commits and leaves the field,
+ * Escape leaves it, or cancels a scrub, without committing. While focused,
+ * the sidebar keeps keyboard focus and editor shortcuts do not fire.
  */
 export function SidebarNumberField({
   ariaLabel,
   value,
   onValueCommit,
+  onScrubStart,
   onClear,
   label,
   unit,
   suffix,
   placeholder,
   inputClassName,
+  step = NUDGES_VALUES.small,
+  min,
+  max,
   disabled = false,
 }: SidebarNumberFieldProps) {
-  const cancelled = useRef(false);
-  // Remounting shows `value` again; after a commit or Escape, typed text must not linger.
-  const [revision, setRevision] = useState(0);
-
   return (
-    <Tooltip content={ariaLabel}>
-      <NumberField
-        key={revision}
-        className="w-full"
-        value={value}
-        step={NUDGES_VALUES.small}
-        smallStep={NUDGES_VALUES.small}
-        largeStep={NUDGES_VALUES.medium}
-        format={{
-          maximumFractionDigits: 2,
-          useGrouping: false,
-          style: unit === undefined ? "decimal" : "unit",
-          unit,
-          unitDisplay: "narrow",
-        }}
-        disabled={disabled}
-        onValueCommitted={(next, details) => {
-          if (cancelled.current) return;
-          if (next === null) {
-            if (onClear) onClear();
-            setRevision((current) => current + 1);
-            return;
-          }
-          onValueCommit(next);
-          if (details.reason !== "keyboard") setRevision((current) => current + 1);
-        }}
-      >
-        <NumberFieldGroup className="h-6">
-          {label && <span className="shrink-0 pl-2 text-ui font-medium text-muted">{label}</span>}
-          <NumberFieldInput
-            aria-label={ariaLabel}
-            size="compact"
-            placeholder={placeholder}
-            className={inputClassName}
-            onFocus={(event) => {
-              cancelled.current = false;
-              event.currentTarget.select();
-            }}
-            onBlur={(event) => {
-              if (!cancelled.current) return;
-              // Skip Base UI's commit on blur and show the value again.
-              event.preventDefault();
-              setRevision((current) => current + 1);
-            }}
-            onKeyDown={(event) => {
-              event.nativeEvent.stopImmediatePropagation();
-              switch (event.key) {
-                case "Enter":
-                  event.currentTarget.blur();
-                  return;
-                case "Escape":
-                  cancelled.current = true;
-                  event.currentTarget.blur();
-                  return;
-                case "ArrowUp":
-                case "ArrowDown":
-                  if (value === null) {
-                    event.preventDefault();
-                    return;
-                  }
-                  // The accelerator is Cmd on macOS and Ctrl elsewhere, as for canvas nudges.
-                  if (!event.metaKey && !event.ctrlKey) return;
-                  event.preventDefault();
-                  onValueCommit(value + (event.key === "ArrowUp" ? 1 : -1) * NUDGES_VALUES.large);
-              }
-            }}
-          />
-          {suffix && <span className="shrink-0 pr-2 text-ui text-muted">{suffix}</span>}
-        </NumberFieldGroup>
-      </NumberField>
-    </Tooltip>
+    <ScrubInput
+      aria-label={ariaLabel}
+      value={value}
+      onValueCommit={onValueCommit}
+      onScrubStart={onScrubStart}
+      onClear={onClear}
+      label={label}
+      suffix={unit === "degree" ? "°" : suffix}
+      placeholder={placeholder}
+      inputClassName={inputClassName}
+      step={step}
+      smallStep={step / 10}
+      largeStep={step * NUDGES_VALUES.medium}
+      accelStep={step * NUDGES_VALUES.large}
+      min={min}
+      max={max}
+      disabled={disabled}
+    />
   );
 }

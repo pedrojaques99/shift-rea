@@ -121,27 +121,28 @@ const GlyphAxisRow = ({
       <span className="text-ui text-secondary">{axis.name}</span>
     </div>
     <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_1.5rem] items-center gap-2 pl-2">
-      <div
-        className="min-w-0 flex-1"
-        onDoubleClick={(event) => {
-          event.preventDefault();
-          onValueChange(axis.default);
-        }}
-      >
-        <Slider
-          aria-label={axis.name}
-          min={axis.minimum}
-          max={axis.maximum}
-          step={0.01}
-          value={value}
-          onValueChange={onValueChange}
-        />
-      </div>
+      <Slider
+        aria-label={axis.name}
+        className="min-w-0"
+        min={axis.minimum}
+        max={axis.maximum}
+        step={0.01}
+        value={value}
+        resetValue={axis.default}
+        onValueChange={onValueChange}
+      />
       <EditableSidebarInput
         ariaLabel={`${axis.name} value`}
+        className="text-right"
         value={value}
-        className="w-14"
+        min={axis.minimum}
+        max={axis.maximum}
         onValueChange={onValueChange}
+        onScrubStart={() => ({
+          preview: onValueChange,
+          commit: onValueChange,
+          cancel: () => onValueChange(value),
+        })}
       />
       {canAuthor ? (
         <GlyphAxisActions name={axis.name} onEdit={onEdit} onRemove={onRemove} />

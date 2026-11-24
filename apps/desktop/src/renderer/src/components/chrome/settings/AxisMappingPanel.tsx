@@ -158,7 +158,7 @@ const MappingValueCell = ({ label, value, onChange, onCommit }: MappingValueCell
       }}
       onValueCommitted={onCommit}
       ariaLabel={label}
-      className="h-6 bg-transparent"
+      className="h-6"
       inputClassName="text-center"
     />
   </td>

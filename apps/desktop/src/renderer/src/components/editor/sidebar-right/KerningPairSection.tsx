@@ -13,6 +13,7 @@ import MinusIcon from "@/assets/general/minus.svg";
 import { KerningGroupField } from "@/components/kerning/KerningGroupField";
 import { KerningGroupsPanel } from "@/components/kerning/groups/KerningGroupsPanel";
 import { KerningGroupsTarget } from "@/lib/kerning/KerningGroupsTarget";
+import { scrubKerning } from "@/lib/kerning/kerningScrub";
 import { LockIcon } from "@/components/icons/LockIcon";
 import { LockOpenIcon } from "@/components/icons/LockOpenIcon";
 import type { Editor } from "@shift/editor";
@@ -79,6 +80,7 @@ export const KerningPairSection = () => {
             value={edited?.amount ?? Math.round(pair.amount)}
             disabled={!edited}
             onValueCommit={(amount) => pair.set(editor, amount)}
+            onScrubStart={() => scrubKerning(editor, pair)}
           />
         </SidebarSubsection>
         {kernedSources.length > 1 ? (
@@ -217,6 +219,7 @@ const MasterKernRow = ({
           placeholder={String(resolved)}
           disabled={!editable}
           onValueCommit={(amount) => pair.set(editor, amount, sourceId)}
+          onScrubStart={() => scrubKerning(editor, pair, sourceId)}
         />
       </div>
       <div className="flex w-6 shrink-0 justify-center">

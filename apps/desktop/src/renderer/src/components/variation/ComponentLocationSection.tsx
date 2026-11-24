@@ -112,7 +112,9 @@ export const ComponentLocationSection = () => {
                   value={value}
                   placeholder="Mixed"
                   tooltip={value === null ? "The selected components differ" : undefined}
-                  className="w-14"
+                  className="text-right"
+                  min={axis.minimum}
+                  max={axis.maximum}
                   onValueChange={(next) => setAxis(axis, next)}
                 />
                 <Tooltip content={unsetTooltip(kind, axis.name)}>

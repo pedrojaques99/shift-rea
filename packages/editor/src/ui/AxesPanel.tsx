@@ -41,27 +41,28 @@ export function AxesPanel({ session, actions }: AxesPanelProps) {
                   : "grid-cols-[minmax(0,1fr)_3.5rem]",
               )}
             >
-              <div
-                className="min-w-0 flex-1"
-                onDoubleClick={(event) => {
-                  event.preventDefault();
-                  setValue(axis.default);
-                }}
-              >
-                <Slider
-                  aria-label={axis.name}
-                  min={minimum}
-                  max={maximum}
-                  step={0.01}
-                  value={value}
-                  onValueChange={setValue}
-                />
-              </div>
+              <Slider
+                aria-label={axis.name}
+                className="min-w-0"
+                min={minimum}
+                max={maximum}
+                step={0.01}
+                value={value}
+                resetValue={axis.default}
+                onValueChange={setValue}
+              />
               <EditableSidebarInput
                 ariaLabel={`${axis.name} value`}
+                className="text-right"
                 value={value}
-                className="w-14"
+                min={minimum}
+                max={maximum}
                 onValueChange={setValue}
+                onScrubStart={() => ({
+                  preview: setValue,
+                  commit: setValue,
+                  cancel: () => setValue(value),
+                })}
               />
               {actions ? actions(axis) : null}
             </div>

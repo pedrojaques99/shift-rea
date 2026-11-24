@@ -71,6 +71,13 @@ export {
   type NumberFieldScrubAreaProps,
 } from "./components/number-field";
 export {
+  ScrubInput,
+  formatScrubValue,
+  evaluateNumberExpression,
+  type ScrubInputProps,
+  type ScrubSession,
+} from "./components/scrub-input";
+export {
   Select,
   SelectTrigger,
   SelectValue,

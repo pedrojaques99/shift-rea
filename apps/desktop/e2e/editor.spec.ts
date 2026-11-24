@@ -839,6 +839,54 @@ test.describe("Editor view", () => {
     expect(await editor.selectionBounds()).toMatchObject({ x: initialX + 11 });
   });
 
+  test("scrubs a position by dragging its label as one undo step, and Escape cancels a scrub", async ({
+    page,
+    editor,
+  }) => {
+    await editor.selectAll();
+    const properties = glyphProperties(page);
+    const xInput = properties.getByLabel("X position", { exact: true });
+    const xLabel = properties.getByText("X", { exact: true });
+    const initialX = Math.round((await editor.selectionBounds()).x);
+    await xInput.scrollIntoViewIfNeeded();
+    const box = await xLabel.boundingBox();
+    if (!box) throw new Error("Expected the X label on screen");
+    const start = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+
+    // How far each step moves under pointer lock is the platform's; DevTools
+    // input does not match a hand's, so this asserts direction, not distance.
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    for (let step = 1; step <= 10; step++) await page.mouse.move(start.x + step * 3, start.y);
+    await expect.poll(async () => Number(await xInput.inputValue())).toBeGreaterThan(initialX);
+    const scrubbedX = Number(await xInput.inputValue());
+    await page.mouse.up();
+    await expect.poll(() => editor.selectionBounds()).toMatchObject({ x: scrubbedX });
+    await expect(xInput).not.toBeFocused();
+
+    await editor.undo();
+    await expect.poll(() => editor.selectionBounds()).toMatchObject({ x: initialX });
+
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    for (let step = 1; step <= 5; step++) await page.mouse.move(start.x + step * 4, start.y);
+    await expect(xInput).not.toHaveValue(String(initialX));
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+    await expect(xInput).toHaveValue(String(initialX));
+    expect(await editor.selectionBounds()).toMatchObject({ x: initialX });
+  });
+
+  test("works out a typed sum in a numeric field", async ({ page, editor }) => {
+    await editor.selectAll();
+    const xInput = glyphProperties(page).getByLabel("X position", { exact: true });
+    const initialX = Math.round((await editor.selectionBounds()).x);
+
+    await editor.commitInputValue(xInput, `${initialX}+40`);
+    await expect.poll(() => editor.selectionBounds()).toMatchObject({ x: initialX + 40 });
+    await expect(xInput).toHaveValue(String(initialX + 40));
+  });
+
   // Release geometry with Shift held or released is owned by behaviour/select/resize-selection.test.ts.
   // This test keeps the browser-only ordering: Shift keyup arrives before mouseup.
   test("keeps constrained drag geometry when Shift is released before mouseup", async ({

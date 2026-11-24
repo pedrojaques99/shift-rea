@@ -3,9 +3,10 @@ import { Input, Tooltip } from "@shift/ui";
 import { isAnchorId, type AnchorId } from "@shift/types";
 import { useSignalEffect } from "@/hooks/useSignalEffect";
 import { track } from "@shift/editor/signals";
-import type { PointAxis } from "@shift/geo";
+import { Bounds, type PointAxis } from "@shift/geo";
 import { useEditor } from "@/workspace/WorkspaceContext";
 import { SidebarNumberField } from "./SidebarNumberField";
+import { scrubSelectionMove } from "@/lib/editor/selectionScrub";
 import { SidebarSection } from "./SidebarSection";
 
 interface SelectedAnchors {
@@ -74,6 +75,12 @@ export const AnchorSection = () => {
             disabled={!editable}
             // Several anchors all move to the value typed.
             onValueCommit={(value) => editor.setAnchorAxis(selected.ids, axis, value)}
+            // One anchor previews as it is scrubbed; several commit once, on release.
+            onScrubStart={() => {
+              const { x, y } = selected;
+              if (!single || x === null || y === null) return null;
+              return scrubSelectionMove(editor, Bounds.fromXYWH(x, y, 0, 0), axis);
+            }}
           />
         ))}
       </div>

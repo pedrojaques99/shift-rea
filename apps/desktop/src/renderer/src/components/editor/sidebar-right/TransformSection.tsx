@@ -14,6 +14,12 @@ import {
   rotateSelection,
 } from "@/lib/editor/sidebarActions";
 import { formatSidebarShortcut, sidebarShortcuts } from "@/lib/keyboard/sidebarShortcuts";
+import {
+  scrubSelectionMove,
+  scrubSelectionRotation,
+  scrubSelectionScale,
+} from "@/lib/editor/selectionScrub";
+import type { ScrubSession } from "@shift/ui";
 
 import RotateIcon from "@/assets/sidebar-right/rotate.svg";
 import RotateCwIcon from "@/assets/sidebar-right/rotate-cw.svg";
@@ -229,6 +235,30 @@ export const TransformSection = () => {
     [componentSelection, editable, isEditing, layer, selectedPointIds, selectionBounds],
   );
 
+  const scrubDimension = (bounds: Bounds, dimension: "width" | "height") => {
+    const current = dimension === "width" ? Bounds.width(bounds) : Bounds.height(bounds);
+    if (current === 0) return null;
+
+    return scrubSelectionScale(editor, bounds, "bl", (value) =>
+      dimension === "width" ? { x: value / current, y: 1 } : { x: 1, y: value / current },
+    );
+  };
+
+  const scrubRotation = (): ScrubSession | null => {
+    if (!editable || !selectionBounds) return null;
+
+    const session = scrubSelectionRotation(editor, selectionBounds, rotation);
+    if (!session) return null;
+
+    return {
+      ...session,
+      commit: (value) => {
+        session.commit(value);
+        setRotation(value % 360);
+      },
+    };
+  };
+
   return (
     <SidebarSection title="Transform">
       <div className="flex flex-col gap-2">
@@ -250,6 +280,9 @@ export const TransformSection = () => {
             value={shownBounds ? Math.round(Bounds.width(shownBounds)) : 0}
             disabled={!editable}
             onValueCommit={(v) => handleDimensionsChange("width", v)}
+            onScrubStart={() =>
+              editable && shownBounds ? scrubDimension(shownBounds, "width") : null
+            }
           />
           <SidebarNumberField
             ariaLabel="Dimension height"
@@ -257,6 +290,9 @@ export const TransformSection = () => {
             value={shownBounds ? Math.round(Bounds.height(shownBounds)) : 0}
             disabled={!editable}
             onValueCommit={(v) => handleDimensionsChange("height", v)}
+            onScrubStart={() =>
+              editable && shownBounds ? scrubDimension(shownBounds, "height") : null
+            }
           />
         </div>
       </div>
@@ -270,6 +306,9 @@ export const TransformSection = () => {
             value={shownBounds ? Math.round(shownBounds.min.x) : 0}
             disabled={!editable}
             onValueCommit={(v) => handlePositionChange("x", v)}
+            onScrubStart={() =>
+              editable && shownBounds ? scrubSelectionMove(editor, shownBounds, "x") : null
+            }
           />
           <SidebarNumberField
             ariaLabel="Y position"
@@ -277,6 +316,9 @@ export const TransformSection = () => {
             value={shownBounds ? Math.round(shownBounds.min.y) : 0}
             disabled={!editable}
             onValueCommit={(v) => handlePositionChange("y", v)}
+            onScrubStart={() =>
+              editable && shownBounds ? scrubSelectionMove(editor, shownBounds, "y") : null
+            }
           />
         </div>
       </div>
@@ -292,6 +334,7 @@ export const TransformSection = () => {
               unit="degree"
               disabled={!editable}
               onValueCommit={handleRotate}
+              onScrubStart={scrubRotation}
             />
           </div>
           <div className="flex shrink-0 items-center gap-1">

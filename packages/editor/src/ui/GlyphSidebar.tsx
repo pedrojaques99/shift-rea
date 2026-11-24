@@ -1,11 +1,12 @@
-import { ArrowLeftRight, Button, ScrollArea, Separator, Tooltip } from "@shift/ui";
+import { ArrowLeftRight, Button, ScrollArea, Separator } from "@shift/ui";
 import type { MetricsKeySide } from "@shift/types";
 import type { SideLink } from "@shift/wasm/protocol";
-import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import type { ReactNode } from "react";
 import { linkOn, type MetricsLinks } from "../lib/model/MetricsLinks";
 import { useSignalState } from "../lib/signals";
 import { EditableSidebarInput, type EditableSidebarInputProps } from "./EditableSidebarInput";
 import { GlyphIdentityFields } from "./GlyphIdentityFields";
+import { beginMetricScrub } from "./metricScrub";
 import { ShiftIcon } from "./ShiftIcon";
 import type { EditorUISession } from "./types";
 import { useGlyphMetrics } from "./useGlyphMetrics";
@@ -32,7 +33,7 @@ export interface GlyphSidebarProps {
 /** What a metric field needs to show and edit the key its side follows. */
 type MetricKeyProps = Pick<
   EditableSidebarInputProps,
-  "keyText" | "onKeyCommit" | "icon" | "iconPosition"
+  "keyText" | "onKeyCommit" | "icon" | "iconPosition" | "tooltip"
 >;
 
 const OPPOSITE_SIDE_NAME: Record<MetricsKeySide, string> = {
@@ -40,6 +41,9 @@ const OPPOSITE_SIDE_NAME: Record<MetricsKeySide, string> = {
   right: "LSB",
   width: "LSB",
 };
+
+/** The sidebearing fields' width: their row sizes to its content, so the field cannot fill it. */
+const SIDEBEARING_FIELD = "w-[5.375rem]";
 
 /** Characters the chip shows before it truncates; past this the tooltip names the source too. */
 const CHIP_FITS = 9;
@@ -73,29 +77,26 @@ function metricKeyProps(
   if (!link) return { onKeyCommit };
 
   const problem = link.problem ?? null;
+  // The chip lets presses through to the field beneath it, which scrubs, or
+  // types the key on a click; the field's tooltip speaks for it.
   const chipTone =
     problem === null
-      ? "bg-background text-primary ring-black/15 hover:bg-input hover:ring-black/30"
-      : "bg-destructive-hover text-error ring-error-ring hover:ring-error";
+      ? "bg-background text-primary ring-black/15 group-hover/scrub:bg-input group-hover/scrub:ring-black/30"
+      : "bg-destructive-hover text-error ring-error-ring group-hover/scrub:ring-error";
   const source = keySource(link.key, side);
-  const focusField = (event: ReactMouseEvent<HTMLButtonElement>) => {
-    event.currentTarget.closest("div")?.querySelector("input")?.focus();
-  };
   return {
     keyText: link.key,
     onKeyCommit,
     iconPosition: keyChipPosition(side),
+    tooltip: problem ?? chipTooltip(source, value),
     icon: (
-      <Tooltip content={problem ?? chipTooltip(source, value)}>
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={focusField}
-          className={`pointer-events-auto flex h-[18px] max-w-[4.5rem] cursor-pointer items-center rounded-[4px] px-1.5 text-ui ring-1 ring-inset transition-colors ${chipTone}`}
-        >
-          <span className="truncate">{source}</span>
-        </button>
-      </Tooltip>
+      <button
+        type="button"
+        tabIndex={-1}
+        className={`pointer-events-none flex h-[18px] max-w-[4.5rem] items-center rounded-[4px] px-1.5 text-ui ring-1 ring-inset transition-colors ${chipTone}`}
+      >
+        <span className="truncate">{source}</span>
+      </button>
     ),
   };
 }
@@ -165,11 +166,13 @@ export function GlyphSidebar({ session, host = {} }: GlyphSidebarProps) {
                   ariaLabel="Left sidebearing"
                   label="LSB"
                   className="text-right"
+                  fieldClassName={SIDEBEARING_FIELD}
                   value={leftSidebearing}
                   disabled={!sidebearingsEditable}
                   onValueChange={
                     sidebearingsEditable ? (value) => editor.setLeftSidebearing(value) : undefined
                   }
+                  onScrubStart={() => beginMetricScrub(editor, "left", leftSidebearing ?? 0)}
                   {...metricKeyProps(
                     links,
                     "left",
@@ -186,11 +189,13 @@ export function GlyphSidebar({ session, host = {} }: GlyphSidebarProps) {
                   label="RSB"
                   labelPosition="right"
                   className="text-left"
+                  fieldClassName={SIDEBEARING_FIELD}
                   value={rightSidebearing}
                   disabled={!sidebearingsEditable}
                   onValueChange={
                     sidebearingsEditable ? (value) => editor.setRightSidebearing(value) : undefined
                   }
+                  onScrubStart={() => beginMetricScrub(editor, "right", rightSidebearing ?? 0)}
                   {...metricKeyProps(
                     links,
                     "right",
@@ -204,9 +209,11 @@ export function GlyphSidebar({ session, host = {} }: GlyphSidebarProps) {
                 <EditableSidebarInput
                   ariaLabel="Advance width"
                   className="text-center"
+                  fieldClassName="w-[8.875rem]"
                   value={glyph ? Math.round(xAdvance) : null}
                   disabled={!editable}
                   onValueChange={editable ? (value) => editor.setXAdvance(value) : undefined}
+                  onScrubStart={() => beginMetricScrub(editor, "width", Math.round(xAdvance))}
                   {...metricKeyProps(
                     links,
                     "width",

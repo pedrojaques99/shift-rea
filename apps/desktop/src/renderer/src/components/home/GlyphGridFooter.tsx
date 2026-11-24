@@ -44,6 +44,7 @@ export function GlyphGridFooter({
         min={TILE_SIZE.min}
         max={TILE_SIZE.max}
         value={tileSize}
+        resetValue={TILE_SIZE.default}
         onValueChange={setTileSize}
       />
     </footer>

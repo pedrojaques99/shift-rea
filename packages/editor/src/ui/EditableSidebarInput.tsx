@@ -1,29 +1,22 @@
-import { cn, Input, Tooltip, TooltipContent, TooltipTrigger } from "@shift/ui";
-import {
-  forwardRef,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
-import { NUDGES_VALUES, nudgeMagnitude } from "../types/nudge";
+import { ScrubInput, type ScrubSession } from "@shift/ui";
+import type { ReactNode } from "react";
+import { NUDGES_VALUES } from "../types/nudge";
 import { useSidebarInputFocus } from "./SidebarInputFocus";
-
-export interface EditableSidebarInputHandle {
-  setValue: (value: number) => void;
-}
 
 export interface EditableSidebarInputProps {
   ariaLabel: string;
   label?: string | ReactNode;
   labelPosition?: "left" | "right";
+  /** Classes for the input, such as `text-right` for a column of numbers. */
   className?: string;
+  /** Classes for the whole field, such as a fixed width where its row sizes to its content. */
+  fieldClassName?: string;
   value?: number | null;
   icon?: ReactNode;
   iconPosition?: "left" | "right" | "center";
   onValueChange?: (value: number) => void;
+  /** Opens a live preview for a scrub, committed as one undo step on release. */
+  onScrubStart?: () => ScrubSession | null;
   disabled?: boolean;
   suffix?: string;
   defaultValue?: number;
@@ -43,142 +36,78 @@ export interface EditableSidebarInputProps {
   tooltip?: string;
   /** Shown in place of a null value, such as "Mixed" when a selection differs. */
   placeholder?: string;
+  /** The scrub and arrow step; Shift steps ten times it, Alt a tenth. */
+  step?: number;
+  min?: number;
+  max?: number;
 }
 
-/** Whether `text` is a key the field passes to `onKeyCommit` rather than a number. */
-function isKeyText(text: string, keyText: string | null): boolean {
-  return text.startsWith("=") || (keyText !== null && text === "");
+const ICON_POSITION = { left: "start", right: "end", center: "center" } as const;
+
+/**
+ * A numeric sidebar field: drag it sideways to scrub, or click to type a
+ * number, a sum such as `600+20` or `*2`, or, with {@link onKeyCommit}, a
+ * key such as `=H`.
+ *
+ * @remarks
+ * Scrubbing previews through `onScrubStart` and commits once on release;
+ * Escape cancels it. Arrow keys step by 1, Shift by 10, Alt by 0.1 and Cmd
+ * or Ctrl by 100. While typing, the host's {@link useSidebarInputFocus}
+ * hooks hold editor shortcuts.
+ */
+export function EditableSidebarInput({
+  ariaLabel,
+  label,
+  labelPosition = "left",
+  className,
+  fieldClassName,
+  value,
+  icon,
+  iconPosition = "right",
+  onValueChange,
+  onScrubStart,
+  disabled = false,
+  suffix,
+  defaultValue = 0,
+  keyText = null,
+  onKeyCommit,
+  placeholder,
+  tooltip,
+  step = NUDGES_VALUES.small,
+  min,
+  max,
+}: EditableSidebarInputProps) {
+  const focus = useSidebarInputFocus();
+
+  return (
+    <ScrubInput
+      aria-label={ariaLabel}
+      value={value === undefined ? defaultValue : value}
+      onValueCommit={onValueChange}
+      onScrubStart={onScrubStart}
+      editText={keyText}
+      onTextCommit={onKeyCommit}
+      onEditingChange={(editing) => {
+        if (!focus) return;
+        if (editing) focus.onEditStart();
+        else focus.onEditEnd();
+      }}
+      label={label}
+      labelPosition={labelPosition === "left" ? "start" : "end"}
+      adornment={icon}
+      adornmentPosition={ICON_POSITION[iconPosition]}
+      suffix={suffix}
+      placeholder={placeholder}
+      tooltip={tooltip}
+      step={step}
+      smallStep={step / 10}
+      largeStep={step * NUDGES_VALUES.medium}
+      accelStep={step * NUDGES_VALUES.large}
+      min={min}
+      max={max}
+      disabled={disabled}
+      className={fieldClassName}
+      inputClassName={className}
+    />
+  );
 }
-
-const parseNumericValue = (input: string): number | null => {
-  const cleaned = input.replace(/[^0-9.-]/g, "");
-  const parsed = Number.parseFloat(cleaned);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-export const EditableSidebarInput = forwardRef<
-  EditableSidebarInputHandle,
-  EditableSidebarInputProps
->(
-  (
-    {
-      ariaLabel,
-      label,
-      labelPosition,
-      className,
-      value,
-      icon,
-      iconPosition,
-      onValueChange,
-      disabled = false,
-      suffix = "",
-      defaultValue = 0,
-      keyText = null,
-      onKeyCommit,
-      placeholder,
-      tooltip,
-    },
-    ref,
-  ) => {
-    const initialValue = value === undefined ? defaultValue : value;
-    const [isEditing, setIsEditing] = useState(false);
-    const [editValue, setEditValue] = useState("");
-    const [displayValue, setDisplayValue] = useState<number | null>(initialValue);
-    const [refusal, setRefusal] = useState<string | null>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const focus = useSidebarInputFocus();
-
-    useImperativeHandle(ref, () => ({ setValue: setDisplayValue }), []);
-
-    useEffect(() => {
-      if (!isEditing && value !== undefined) setDisplayValue(value);
-    }, [value, isEditing]);
-
-    const handleFocus = useCallback(() => {
-      if (disabled) return;
-      setIsEditing(true);
-      setEditValue(keyText ?? (displayValue === null ? "" : String(displayValue)));
-      focus?.onEditStart();
-    }, [disabled, displayValue, focus, keyText]);
-
-    const handleBlur = useCallback(() => {
-      setIsEditing(false);
-      focus?.onEditEnd();
-      const text = editValue.trim();
-      if (onKeyCommit && isKeyText(text, keyText)) {
-        setRefusal(text === keyText ? null : onKeyCommit(text));
-        return;
-      }
-
-      setRefusal(null);
-      const numericValue = parseNumericValue(editValue) ?? defaultValue;
-      setDisplayValue(numericValue);
-      if (onValueChange) onValueChange(numericValue);
-    }, [editValue, defaultValue, onValueChange, focus, onKeyCommit, keyText]);
-
-    const handleKeyDown = useCallback(
-      (event: React.KeyboardEvent<HTMLInputElement>) => {
-        if (!inputRef.current) return;
-        event.nativeEvent.stopImmediatePropagation();
-
-        if (event.key === "Enter") {
-          inputRef.current.blur();
-          return;
-        }
-        if ((event.metaKey || event.ctrlKey) && event.key === "a") inputRef.current.select();
-        if (event.key === "Escape") {
-          setEditValue(keyText ?? (displayValue === null ? "" : String(displayValue)));
-          setIsEditing(false);
-          inputRef.current.blur();
-          return;
-        }
-        if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
-
-        event.preventDefault();
-        const magnitude = nudgeMagnitude({ accel: event.metaKey, shift: event.shiftKey });
-        const currentValue = isEditing ? parseNumericValue(editValue) : displayValue;
-        if (currentValue === null) return;
-
-        const nextValue =
-          currentValue + NUDGES_VALUES[magnitude] * (event.key === "ArrowUp" ? 1 : -1);
-        if (isEditing) setEditValue(String(nextValue));
-        if (onValueChange) onValueChange(nextValue);
-      },
-      [displayValue, editValue, isEditing, onValueChange, keyText],
-    );
-
-    const displayText = displayValue === null ? "" : `${displayValue}${suffix}`;
-    // A linked field shows its key as a chip (`icon`), so the input itself is
-    // empty until the key is edited.
-    const linkedAtRest = keyText !== null && !isEditing;
-    const shownText = linkedAtRest ? "" : displayText;
-
-    return (
-      <Tooltip disabled={linkedAtRest && refusal === null}>
-        <TooltipTrigger>
-          <Input
-            ref={inputRef}
-            aria-label={ariaLabel}
-            label={label}
-            labelPosition={labelPosition}
-            value={isEditing ? editValue : shownText}
-            icon={isEditing && keyText !== null ? undefined : icon}
-            iconPosition={iconPosition}
-            readOnly={!isEditing}
-            className={cn("w-full", className)}
-            onFocus={handleFocus}
-            onBlur={handleBlur}
-            onKeyDown={handleKeyDown}
-            onChange={(event) => setEditValue(event.target.value)}
-            disabled={disabled}
-            aria-invalid={refusal !== null}
-            placeholder={placeholder}
-          />
-        </TooltipTrigger>
-        <TooltipContent>{refusal ?? tooltip ?? ariaLabel}</TooltipContent>
-      </Tooltip>
-    );
-  },
-);
-
-EditableSidebarInput.displayName = "EditableSidebarInput";

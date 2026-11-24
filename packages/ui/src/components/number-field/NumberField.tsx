@@ -52,7 +52,7 @@ export function NumberFieldInput({ className, size = "md", ...props }: NumberFie
   return (
     <BaseNumberField.Input
       className={cn(
-        "h-full min-w-0 flex-1 bg-transparent px-2 text-primary outline-none",
+        "h-full min-w-0 flex-1 bg-transparent px-2 text-primary tabular-nums outline-none placeholder:text-muted",
         "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
         inputSizeStyles[size],
         className,

@@ -1,10 +1,6 @@
 export { AxesPanel, type AxesPanelProps } from "./ui/AxesPanel";
 export { CollapsibleSection, type CollapsibleSectionProps } from "./ui/CollapsibleSection";
-export {
-  EditableSidebarInput,
-  type EditableSidebarInputHandle,
-  type EditableSidebarInputProps,
-} from "./ui/EditableSidebarInput";
+export { EditableSidebarInput, type EditableSidebarInputProps } from "./ui/EditableSidebarInput";
 export { EditorToolbar, type EditorToolbarHost, type EditorToolbarProps } from "./ui/EditorToolbar";
 export { FloatingToolbar, type FloatingToolbarProps } from "./ui/FloatingToolbar";
 export { TOOLBAR_DOCKS } from "./ui/toolbarPose";
@@ -30,3 +26,4 @@ export {
   type VariationSidebarSectionHost,
 } from "./ui/VariationSidebar";
 export type { EditorUISession } from "./ui/types";
+export { beginMetricScrub } from "./ui/metricScrub";
