@@ -65,6 +65,7 @@ mod string_enum;
 pub mod svg_path;
 #[cfg(any(test, feature = "test-support"))]
 pub mod test_support;
+pub mod weight_class;
 pub mod wire;
 
 pub use axis_map::piecewise_map;

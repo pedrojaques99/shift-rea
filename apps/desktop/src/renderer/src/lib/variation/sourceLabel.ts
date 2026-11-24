@@ -1,22 +1,5 @@
+import { standardWeightName } from "@shift/wasm";
 import type { Axis } from "@shift/types";
-
-/**
- * Standard weight-class names, the same table `shift-cli instance add --standard-weights` uses.
- *
- * @remarks
- * Display-only. TODO(rea): expose the Rust table through `shift-wasm` instead of mirroring it.
- */
-const STANDARD_WEIGHTS: readonly (readonly [number, string])[] = [
-  [100, "Thin"],
-  [200, "ExtraLight"],
-  [300, "Light"],
-  [400, "Regular"],
-  [500, "Medium"],
-  [600, "SemiBold"],
-  [700, "Bold"],
-  [800, "ExtraBold"],
-  [900, "Black"],
-];
 
 /**
  * Names a source the way a designer reads a style: "Regular Oblique · Ink Traps".
@@ -75,7 +58,8 @@ function axisWord(axis: Axis, value: number): string | null {
 
   switch (axis.tag) {
     case "wght":
-      return STANDARD_WEIGHTS.find(([weight]) => weight === value)?.[1] ?? `Weight ${value}`;
+      // shift-font owns the table (`weight_class`), shared with `shift-cli instance add`.
+      return standardWeightName(value) || `Weight ${value}`;
     case "slnt":
     case "ital":
       return value === 0 ? null : "Italic";

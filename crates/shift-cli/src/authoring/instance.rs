@@ -1,6 +1,7 @@
 //! Product presets use complete external locations and never create master sources.
 
 use miette::{Result, bail, miette};
+use shift_font::weight_class::STANDARD_WEIGHTS;
 use shift_font::{AxisRole, ExternalLocation, Font, FontIntent, FontIntentSet, NamedInstance};
 use shift_font::{CreateNamedInstance, DeleteNamedInstance, UpdateNamedInstance};
 
@@ -9,18 +10,6 @@ use crate::cli::{AddInstanceArgs, RemoveInstanceArgs, SetInstanceArgs};
 use super::{AuthoringReport, apply_mutation, glyph::load_font, parse_location};
 
 pub(super) mod report;
-
-const STANDARD_WEIGHTS: [(f64, &str); 9] = [
-    (100.0, "Thin"),
-    (200.0, "ExtraLight"),
-    (300.0, "Light"),
-    (400.0, "Regular"),
-    (500.0, "Medium"),
-    (600.0, "SemiBold"),
-    (700.0, "Bold"),
-    (800.0, "ExtraBold"),
-    (900.0, "Black"),
-];
 
 /// Adds a product or missing standard weights without replacing existing IDs.
 ///
