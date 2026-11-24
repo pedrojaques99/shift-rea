@@ -3,6 +3,7 @@ import { KerningGroupField } from "@/components/kerning/KerningGroupField";
 import { KerningGroupsPanel } from "@/components/kerning/groups/KerningGroupsPanel";
 import { KerningGroupsTarget } from "@/lib/kerning/KerningGroupsTarget";
 import { useEditor } from "@/workspace/WorkspaceContext";
+import { NeighbourKerning } from "./NeighbourKerning";
 import { SidebarSection, SidebarSubsection } from "./SidebarSection";
 
 /**
@@ -36,6 +37,7 @@ export const GlyphKerningSection = ({ anchorRef }: GlyphKerningSectionProps) => 
         <KerningGroupsPanel target={KerningGroupsTarget.glyph(glyphId)} anchorRef={anchorRef} />
       }
     >
+      <NeighbourKerning editor={editor} node={node} />
       <SidebarSubsection title="Groups">
         <div className="flex gap-2">
           {/* A glyph's left edge kerns as the second of a pair; its right edge as the first. */}

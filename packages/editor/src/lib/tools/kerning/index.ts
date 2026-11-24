@@ -1,2 +1,2 @@
 export { KerningTool } from "./Kerning";
-export type { KerningPair } from "./RunKerning";
+export { runPairs, type KerningPair } from "./RunKerning";

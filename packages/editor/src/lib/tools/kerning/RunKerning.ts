@@ -7,6 +7,7 @@ import {
   type ResolvedKerning,
 } from "../../model/Kerning";
 import type { ScenePoint } from "../../../types/coordinates";
+import type { TextRunNode } from "../../../types/node";
 import { spacingGapCenter, type SpacingGap, type SpacingSide } from "../../../types/spacing";
 
 /** A spacing gap with a glyph on both sides. */
@@ -219,6 +220,14 @@ export class RunKerning {
     const index = pairs.findIndex((candidate) => candidate.sameAs(pair));
     return index === -1 ? null : (pairs[index + step] ?? null);
   }
+}
+
+/** A run's kerned pairs, in reading order: every gap with a glyph on both sides. */
+export function runPairs(editor: Editor, node: TextRunNode): KerningPair[] {
+  return editor
+    .nodeDefinition("textRun")
+    .spacingGaps(node)
+    .flatMap((gap) => kernedPair(gap) ?? []);
 }
 
 function kernedPair(gap: SpacingGap): KerningPair | null {
