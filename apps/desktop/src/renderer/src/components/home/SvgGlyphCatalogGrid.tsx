@@ -129,7 +129,7 @@ export function SvgGlyphCatalogGrid({
         data-grid-readiness={readiness}
         data-preview-cache-bytes={cacheBytes}
         data-first-glyph-name={glyphs[0]?.displayName}
-        className="absolute inset-0 overflow-x-hidden overflow-y-auto outline-none"
+        className="absolute inset-0 overflow-x-hidden overflow-y-auto outline-none focus-visible:inset-ring-2 focus-visible:inset-ring-accent/60"
         role="group"
         tabIndex={0}
         onScroll={(event) => setScrollTop(event.currentTarget.scrollTop)}

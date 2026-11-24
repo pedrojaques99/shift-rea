@@ -41,6 +41,15 @@ describe("filtering the glyph grid by tag colour", () => {
     expect(filtered([yellow, false], [yellow, false]).size).toBe(0);
   });
 
+  it("shows every glyph again when the filter is cleared, as an empty grid offers", () => {
+    const view = new GlyphGridView();
+    view.filterColor(yellow, false);
+    view.filterColor(teal, true);
+    view.clearColorFilter();
+
+    expect(filterByColor(glyphs, view.colorFilterCell.peek())).toEqual(glyphs);
+  });
+
   it("offers each colour in use, then untagged, with how many glyphs have it", () => {
     expect(colorsInUse(glyphs, filtered())).toEqual([
       { key: "yellow", color: yellow, count: 2 },

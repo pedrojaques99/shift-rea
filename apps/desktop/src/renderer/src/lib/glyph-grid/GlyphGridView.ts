@@ -48,6 +48,13 @@ export class GlyphGridView {
    *
    * @param color - null for glyphs with no colour.
    */
+  /** Shows glyphs of every colour again. */
+  clearColorFilter(): void {
+    if (this.#colorFilterCell.peek().size === 0) return;
+
+    this.#colorFilterCell.set(new Map());
+  }
+
   filterColor(color: MarkColor | null, add: boolean): void {
     const current = this.#colorFilterCell.peek();
     const key = markColorKey(color);

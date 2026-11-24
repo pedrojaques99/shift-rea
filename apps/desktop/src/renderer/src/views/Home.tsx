@@ -58,7 +58,7 @@ export const Home = () => {
         />
         <ResizablePanel id="grid" minSize={300}>
           <div className="relative h-full">
-            <GlyphGrid />
+            <GlyphGrid askAgent={agentOpen ? undefined : toggleAgent} />
             <UpdateStrip className="right-3 bottom-3" />
           </div>
         </ResizablePanel>

@@ -216,7 +216,7 @@ export function SlugGlyphCatalogSurface({
     >
       <div
         ref={containerRef}
-        className="absolute inset-0 overflow-x-hidden overflow-y-auto outline-none"
+        className="absolute inset-0 overflow-x-hidden overflow-y-auto outline-none focus-visible:inset-ring-2 focus-visible:inset-ring-accent/60"
         aria-label="Glyph catalog"
         role="group"
         tabIndex={0}

@@ -38,6 +38,16 @@ export interface LanguageGlyph {
   readonly present: boolean;
 }
 
+/** A script's Basic set, offered as a one-click start for a font that lacks it. */
+export interface StarterSet {
+  /** The script group id, such as `latin/basic`. */
+  readonly id: string;
+  /** The script, such as `Latin`. */
+  readonly script: string;
+  /** Glyphs the set requires that the font does not have yet. */
+  readonly missingCount: number;
+}
+
 export type PendingGlyphNames = ReadonlyMap<GlyphId, GlyphName>;
 
 export interface GlyphCategoryFilter {
@@ -85,6 +95,13 @@ export interface GlyphCatalogSource {
    * glyphs at their Unicode value, unencoded forms such as `beh-ar.init` by name.
    */
   generateGlyphs: (glyphs: readonly RequiredGlyph[]) => void;
+  /**
+   * Creates an empty glyph for each character typed that the font lacks, as
+   * one undoable edit, and shows every glyph so the new ones are in view.
+   *
+   * @returns How many glyphs were created; 0 when the font has every character.
+   */
+  createGlyphsForText: (text: string) => number;
   categoryFilters: readonly GlyphCategoryFilter[];
   /** The language or script group filtering the grid; null when none is. */
   selectedLanguageId: string | null;

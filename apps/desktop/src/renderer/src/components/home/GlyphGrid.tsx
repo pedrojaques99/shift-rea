@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSignalState } from "@shift/editor/signals";
 import { useLocation } from "react-router";
 import { GlyphCatalogBackendGate } from "./GlyphCatalogBackendGate";
+import { GlyphGridEmptyState } from "./GlyphGridEmptyState";
 import { GlyphGridFooter } from "./GlyphGridFooter";
 import { GridToasts } from "./GridToasts";
 import { useGlyphCatalog } from "@/context/GlyphCatalogContext";
@@ -10,7 +11,12 @@ import { colorsInUse, filterByColor } from "@/lib/glyph-grid/colorFilter";
 import { useFontSession } from "@/workspace/WorkspaceContext";
 
 /** Coordinates shared catalog data and session-fixed backend selection. */
-export const GlyphGrid = memo(function GlyphGrid() {
+export interface GlyphGridProps {
+  /** Opens the agent panel, offered to a font with no glyphs; absent while it is open. */
+  readonly askAgent?: () => void;
+}
+
+export const GlyphGrid = memo(function GlyphGrid({ askAgent }: GlyphGridProps) {
   const catalogActive = useLocation().pathname === "/home";
   const {
     filteredGlyphs,
@@ -100,9 +106,10 @@ export const GlyphGrid = memo(function GlyphGrid() {
             onUnavailable={handleCatalogUnavailable}
           />
           {shownGlyphs.length === 0 ? (
-            <div className="pointer-events-none absolute inset-0 z-4 flex items-center justify-center px-4 text-sm text-muted">
-              No glyphs match this filter.
-            </div>
+            <GlyphGridEmptyState
+              clearColorFilter={() => gridView.clearColorFilter()}
+              askAgent={askAgent}
+            />
           ) : null}
         </section>
         <GlyphGridFooter

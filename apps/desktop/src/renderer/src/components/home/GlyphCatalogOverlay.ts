@@ -192,18 +192,6 @@ export class GlyphCatalogOverlay {
         selectionBox.height,
       );
     }
-
-    if (frame.layout.glyphCount > 0) return;
-
-    context.fillStyle = mutedColor;
-    context.font = `400 12px ${fontFamily}`;
-    context.textAlign = "center";
-    context.textBaseline = "middle";
-    context.fillText(
-      "No glyphs match this filter.",
-      frame.layout.viewportWidth / 2,
-      frame.layout.viewportHeight / 2,
-    );
   }
 }
 

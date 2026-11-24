@@ -23,6 +23,7 @@ import type {
 } from "@/types/glyphCatalog";
 import { NameQuery } from "@/lib/utils/NameQuery";
 import { useMemberSet } from "@/hooks/useMemberSet";
+import { charactersToAdd } from "@/lib/glyph-grid/startGlyphs";
 
 const NO_LANGUAGE_IDS = signal<readonly string[] | null>(null, {
   name: "glyphCatalog.previewLanguageIds",
@@ -353,6 +354,23 @@ const useGlyphCatalogSource = (): GlyphCatalogSource => {
     [workspace],
   );
 
+  const createGlyphsForText = useCallback<GlyphCatalogSource["createGlyphsForText"]>(
+    (text) => {
+      if (!workspace) throw new Error("preview catalog cannot create glyphs");
+
+      const unicodes = charactersToAdd(text, new Set(availableUnicodes));
+      if (unicodes.length === 0) return 0;
+
+      const [first] = workspace.editor.createGlyphsForUnicodes(unicodes);
+      setQuery("");
+      setCategoryFilters([]);
+      setSelectedLanguageId(null);
+      if (first) void selectGlyphById(first.id);
+      return unicodes.length;
+    },
+    [availableUnicodes, selectGlyphById, workspace],
+  );
+
   return {
     availableGlyphs: [...availableGlyphs],
     filteredGlyphs,
@@ -364,6 +382,7 @@ const useGlyphCatalogSource = (): GlyphCatalogSource => {
     setTrackedLanguageIds,
     languageGlyphs,
     generateGlyphs,
+    createGlyphsForText,
     categoryFilters,
     selectedLanguageId,
     visibleCategoryFilters,
