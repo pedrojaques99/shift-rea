@@ -1,6 +1,7 @@
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@shift/ui";
 import { GlyphGrid } from "@/components/home/GlyphGrid";
 import { LeftSidebar } from "@/components/home/LeftSidebar";
+import { AgentChatPanel } from "@/components/agent-chat/AgentChatPanel";
 import { RightSidebar } from "@/components/editor/RightSidebar";
 import { Toolbar } from "@/components/chrome/Toolbar";
 import { useSidebarLayout } from "@/components/chrome/useSidebarLayout";
@@ -19,6 +20,11 @@ export const Home = () => {
     rightSidebarOpen,
     resetLeftSidebar,
     resetRightSidebar,
+    groupRef,
+    agentContentRef,
+    agentOpen,
+    toggleAgent,
+    resetAgent,
   } = useSidebarLayout("home");
   const dismissGridSelection = useDismissGridSelection();
 
@@ -29,9 +35,12 @@ export const Home = () => {
         toggleRightSidebar={toggleRightSidebar}
         leftSidebarOpen={leftSidebarOpen}
         rightSidebarOpen={rightSidebarOpen}
+        toggleAgent={toggleAgent}
+        agentOpen={agentOpen}
       />
       <ResizablePanelGroup
         id="home-layout-panels"
+        groupRef={groupRef}
         orientation="horizontal"
         onLayoutChanged={onLayoutChanged}
         className="min-h-0 overflow-hidden"
@@ -62,6 +71,18 @@ export const Home = () => {
         <ResizablePanel {...sidebarPanelProps("right")}>
           <div ref={rightSidebarContentRef} className="h-full" onPointerDown={dismissGridSelection}>
             <RightSidebar />
+          </div>
+        </ResizablePanel>
+        <ResizableHandle
+          aria-label="Resize agent panel"
+          inset="end"
+          disableDoubleClick
+          onDoubleClick={resetAgent}
+        />
+        {/* The agent works on the whole font here: it can create glyphs before any is open. */}
+        <ResizablePanel {...sidebarPanelProps("agent")}>
+          <div ref={agentContentRef} className="h-full border-l border-line-subtle">
+            <AgentChatPanel />
           </div>
         </ResizablePanel>
       </ResizablePanelGroup>
