@@ -218,7 +218,8 @@ export function InspectorSlider({
   const prende = (n: number) => prender(n, min, max, step);
   const pct = (n: number) => (max === min ? 0 : ((Math.min(max, Math.max(min, n)) - min) / (max - min)) * 100);
   // Faixa que cruza o zero enche a partir do zero: enchido da esquerda, -6 dB leria como um quarto de algo.
-  const origem = min < 0 && max > 0 ? pct(0) : 0;
+  // A faixa que contém o zero, mesmo numa ponta (Slant −10…0), enche a partir dele.
+  const origem = min <= 0 && max >= 0 ? pct(0) : 0;
   const atual = pct(value);
   const texto = format ? format(value) : formatNumber(value, decimals);
 

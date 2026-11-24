@@ -22,6 +22,10 @@ import {
 import { TextBuffer } from "./TextBuffer";
 import type { Editor } from "../editor/Editor";
 import type { TextRunNode } from "../../types/node";
+import { localPoint } from "../editor/spaces";
+
+/** How close to the canvas edge the caret may come before typing pans the view, in CSS pixels. */
+const REVEAL_MARGIN_PX = 48;
 
 /** The caret shown in a text run node; see {@link TextEditing.caretIn}. */
 export interface ShownCaret {
@@ -165,6 +169,26 @@ export class TextEditing {
   insert(items: readonly TextItem[]): void {
     if (items.length === 0) return;
     this.#edit("Insert text", (buffer) => buffer.splice(items));
+    this.#revealCaret();
+  }
+
+  /** Pans just enough to keep the caret in view while typing, as a text editor scrolls. */
+  #revealCaret(): void {
+    const node = this.#node();
+    const caret = node && this.caretIn(node.id);
+    const camera = this.#editor.camera;
+    if (!node || !caret || camera.logicalWidth <= 0) return;
+
+    const { x, y } = caret.position;
+    const screen = this.#editor.sceneToScreen(this.#editor.toScene(node, localPoint(x, y)));
+    const right = camera.logicalWidth - REVEAL_MARGIN_PX;
+    let dx = 0;
+    if (screen.x > right) dx = right - screen.x;
+    if (screen.x < REVEAL_MARGIN_PX) dx = REVEAL_MARGIN_PX - screen.x;
+    if (dx === 0) return;
+
+    const pan = this.#editor.pan;
+    this.#editor.setPan({ x: pan.x + dx, y: pan.y });
   }
 
   /** Inserts text as pasted, read as proof text: `/name` picks the glyph named `name` (`Text.itemsFromText`). */

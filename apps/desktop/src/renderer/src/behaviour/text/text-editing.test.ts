@@ -12,6 +12,19 @@ describe("Text mode", () => {
     expect(editor.shownCursor()).toBe("text");
   });
 
+  it("pans to keep the caret in view while typing past the canvas edge", () => {
+    editor.resizeCanvas(800, 600);
+    editor.typeText("A".repeat(80));
+
+    const nodeId = editor.textEditing.state!.nodeId;
+    const node = editor.scene.nodeOfKind(nodeId, "textRun")!;
+    const { x, y } = editor.textEditing.caretIn(nodeId)!.position;
+    const caret = editor.sceneToScreen(editor.toScene(node, { x, y } as never));
+
+    expect(caret.x).toBeGreaterThan(0);
+    expect(caret.x).toBeLessThanOrEqual(editor.camera.logicalWidth);
+  });
+
   it("ends on Escape, hiding the caret and editing the glyph again", async () => {
     const [a] = editor.canvasText()!.items;
 
