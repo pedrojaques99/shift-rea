@@ -43,6 +43,10 @@ fn sync_tree(root: &Path) -> std::io::Result<()> {
 }
 
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "matches the unix variant, which can fail"
+)]
 fn sync_tree(_root: &Path) -> std::io::Result<()> {
     Ok(())
 }

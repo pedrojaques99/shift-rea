@@ -364,6 +364,10 @@ fn sync_parent_directory(path: &Path) -> Result<(), StoreError> {
 }
 
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "matches the unix variant, which can fail"
+)]
 fn sync_parent_directory(_path: &Path) -> Result<(), StoreError> {
     Ok(())
 }

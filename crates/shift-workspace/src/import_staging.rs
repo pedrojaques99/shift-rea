@@ -52,6 +52,10 @@ pub(crate) fn sync_parent_directory(path: &Path) -> io::Result<()> {
 }
 
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "matches the unix variant, which can fail"
+)]
 pub(crate) fn sync_parent_directory(_path: &Path) -> io::Result<()> {
     Ok(())
 }

@@ -16,6 +16,10 @@ pub(crate) fn sync_parent(path: &Path) -> std::io::Result<()> {
 
 // Windows cannot open directory handles this way; NTFS journals metadata itself.
 #[cfg(not(unix))]
+#[expect(
+    clippy::unnecessary_wraps,
+    reason = "matches the unix variant, which can fail"
+)]
 pub(crate) fn sync_parent(_path: &Path) -> std::io::Result<()> {
     Ok(())
 }
