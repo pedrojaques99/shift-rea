@@ -166,6 +166,11 @@ function ChatBody({ conversation }: { conversation: string | null }) {
           minRows={2}
           placeholder="Ask the agent to draw, space, kern or check…"
           label="Message the agent"
+          submitLabel="Send"
+          queueLabel="Queue"
+          stopLabel="Stop"
+          attachLabel="Attach a sketch or reference"
+          removeLabel={(attachment) => `Remove ${attachment.label}`}
         />
       </div>
     </section>
