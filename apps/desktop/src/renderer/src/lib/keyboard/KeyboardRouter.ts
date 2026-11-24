@@ -19,7 +19,8 @@ function isEditableTarget(target: EventTarget | null): boolean {
   if (element.closest?.('[role="dialog"], [aria-modal="true"]')) return true;
   const tag = (element.tagName ?? "").toUpperCase();
   if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return true;
-  return !!element.closest?.('[contenteditable="true"], input, textarea, select');
+  // A slider row (the sidebar's axis sliders) takes arrows, Home and End itself.
+  return !!element.closest?.('[contenteditable="true"], input, textarea, select, [role="slider"]');
 }
 
 export class KeyboardRouter {

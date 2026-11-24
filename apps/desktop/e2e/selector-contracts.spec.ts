@@ -60,16 +60,16 @@ test.describe("with a weight axis", () => {
 
     const controls = await openVariationControls(page);
     const slider = controls.getByRole("slider", { name: "Weight", exact: true });
-    await expect(slider).toHaveValue("400");
+    await expect(slider).toHaveAttribute("aria-valuenow", "400");
 
-    const normalizedPosition = await slider.evaluate((input) => {
-      const thumb = input.parentElement;
-      const track = thumb?.parentElement;
-      if (!thumb || !track) throw new Error("Expected slider thumb and track");
+    // The row is the slider: its fill runs from the left edge to the value.
+    const normalizedPosition = await slider.evaluate((row) => {
+      const fill = row.querySelector(".ic-slider-fill");
+      if (!fill) throw new Error("Expected the slider row's fill");
 
-      const thumbBounds = thumb.getBoundingClientRect();
-      const trackBounds = track.getBoundingClientRect();
-      return (thumbBounds.left + thumbBounds.width / 2 - trackBounds.left) / trackBounds.width;
+      const fillBounds = fill.getBoundingClientRect();
+      const rowBounds = row.getBoundingClientRect();
+      return (fillBounds.right - rowBounds.left) / rowBounds.width;
     });
 
     expect(normalizedPosition).toBeCloseTo(0.375, 2);

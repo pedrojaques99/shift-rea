@@ -9,12 +9,21 @@ export function NumberField({ className, ...props }: NumberFieldProps) {
 }
 
 export interface NumberFieldGroupProps extends React.ComponentProps<typeof BaseNumberField.Group> {
-  variant?: "filled" | "plain";
+  /**
+   * `scrub` is the Visant registry's scrub-input look (`@visant/scrub-input`):
+   * a bordered card whose border lights on hover, focus and while scrubbing
+   * (`data-scrubbing`).
+   */
+  variant?: "filled" | "plain" | "scrub";
 }
 
 const groupVariantStyles = {
   filled: "bg-input",
   plain: "bg-background",
+  scrub: cn(
+    "rounded-md border border-line-subtle bg-surface transition-colors duration-150 ease-out",
+    "hover:border-accent/40 focus-within:border-accent focus-within:ring-0 data-[scrubbing]:border-accent",
+  ),
 };
 
 export function NumberFieldGroup({

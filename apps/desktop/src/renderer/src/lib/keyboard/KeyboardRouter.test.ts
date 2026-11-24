@@ -492,6 +492,28 @@ describe("KeyboardRouter", () => {
       expect(await editor.point(ids[1]!)).toMatchObject({ x: 200 });
     });
 
+    it("leaves arrow keys to a focused slider row", async () => {
+      const ids = await drawOpenContour([
+        { x: 100, y: 100 },
+        { x: 200, y: 150 },
+      ]);
+      editor.selectTool("select");
+      editor.select(ids);
+      // An axis slider row: a div with role="slider", which steps on arrows itself.
+      const slider = {
+        tagName: "DIV",
+        closest: (selector: string) => (selector.includes('[role="slider"]') ? {} : null),
+      } as unknown as EventTarget;
+
+      const handled = await router.handleKeyDown(
+        createKeyboardEvent({ key: "ArrowRight", code: "ArrowRight", target: slider }),
+      );
+      await editor.settle();
+
+      expect(handled).toBe(false);
+      expect(await editor.point(ids[1]!)).toMatchObject({ x: 200 });
+    });
+
     it("does not flip while typing with the text tool", async () => {
       editor.selectTool("text");
 

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import type { Axis } from "@shift/editor/model";
-import { EditableSidebarInput } from "@shift/editor/ui";
 import { useSignalState } from "@shift/editor/signals";
 import type { AxisId } from "@shift/types";
 import {
@@ -13,9 +12,9 @@ import {
   MenuSeparator,
   MenuTrigger,
   Separator,
-  Slider,
   Tooltip,
 } from "@shift/ui";
+import { InspectorSlider } from "@/components/visant/ui/inspector-controls";
 import { CollapsibleSection, SidebarActionButton } from "@/components/sidebar";
 import { useSidebarPanelAnchor } from "@/hooks/useSidebarPanelAnchor";
 import { useGlyphDesignspace } from "@/hooks/useGlyphDesignspace";
@@ -23,6 +22,7 @@ import { useFontSession } from "@/workspace/WorkspaceContext";
 import VerticalElipsis from "@/assets/general/vertical-ellipsis.svg";
 import PlusIcon from "@/assets/general/plus.svg";
 import { GlyphAxisPopover, refusalMessage, type GlyphAxisPopoverTarget } from "./GlyphAxisPopover";
+import { formatAxisValue, parseAxisText } from "./axisSliderText";
 
 /**
  * The Designspace tab's Glyph axes section, under Font axes, shown while a
@@ -74,7 +74,7 @@ export const GlyphAxesSection = () => {
         }
       >
         {state.rows.length === 0 && <p className="pl-2 text-ui text-muted">None</p>}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1 pl-2">
           {state.rows.map(({ axis, value }) => (
             <GlyphAxisRow
               key={axis.id}
@@ -107,7 +107,7 @@ interface GlyphAxisRowProps {
   onRemove: () => void;
 }
 
-/** One glyph axis, laid out as a Font axes row: its name, a slider, its value and ⋮. */
+/** One glyph axis, laid out as a Font axes row: the slider row (name and value) and ⋮. */
 const GlyphAxisRow = ({
   axis,
   value,
@@ -116,40 +116,19 @@ const GlyphAxisRow = ({
   onEdit,
   onRemove,
 }: GlyphAxisRowProps) => (
-  <div className="flex flex-col gap-1">
-    <div className="flex items-center justify-between px-2">
-      <span className="text-ui text-secondary">{axis.name}</span>
-    </div>
-    <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_1.5rem] items-center gap-2 pl-2">
-      <Slider
-        aria-label={axis.name}
-        className="min-w-0"
-        min={axis.minimum}
-        max={axis.maximum}
-        step={0.01}
-        value={value}
-        resetValue={axis.default}
-        onValueChange={onValueChange}
-      />
-      <EditableSidebarInput
-        ariaLabel={`${axis.name} value`}
-        className="text-right"
-        value={value}
-        min={axis.minimum}
-        max={axis.maximum}
-        onValueChange={onValueChange}
-        onScrubStart={() => ({
-          preview: onValueChange,
-          commit: onValueChange,
-          cancel: () => onValueChange(value),
-        })}
-      />
-      {canAuthor ? (
-        <GlyphAxisActions name={axis.name} onEdit={onEdit} onRemove={onRemove} />
-      ) : (
-        <span />
-      )}
-    </div>
+  <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+    <InspectorSlider
+      label={axis.name}
+      value={value}
+      min={axis.minimum}
+      max={axis.maximum}
+      step={0.01}
+      defaultValue={axis.default}
+      format={formatAxisValue}
+      parse={(text) => parseAxisText(text, value)}
+      onValueChange={onValueChange}
+    />
+    {canAuthor ? <GlyphAxisActions name={axis.name} onEdit={onEdit} onRemove={onRemove} /> : null}
   </div>
 );
 

@@ -1,4 +1,5 @@
-import { Slider } from "@shift/ui";
+import type { CSSProperties } from "react";
+import { InspectorSlider } from "@/components/visant/ui/inspector-controls";
 import { MarkColorSwatch } from "../glyph-grid/MarkColorSwatch";
 import type { MarkColorCount } from "@/lib/glyph-grid/colorFilter";
 import { TILE_SIZE, type MarkColorFilter } from "@/lib/glyph-grid/GlyphGridView";
@@ -14,6 +15,8 @@ interface GlyphGridFooterProps {
   readonly tileSize: number;
   readonly setTileSize: (size: number) => void;
 }
+
+const FOOTER_SLIDER_ROW = { "--ic-row": "1.5rem" } as CSSProperties;
 
 /** The strip under the glyph grid: the colour filter and tile size. */
 export function GlyphGridFooter({
@@ -38,15 +41,18 @@ export function GlyphGridFooter({
           />
         ))}
       </div>
-      <Slider
-        aria-label="Tile size"
-        className="ml-auto w-28"
-        min={TILE_SIZE.min}
-        max={TILE_SIZE.max}
-        value={tileSize}
-        resetValue={TILE_SIZE.default}
-        onValueChange={setTileSize}
-      />
+      {/* The kit's slider row, sized to the footer: a 1.5rem row instead of its 2rem. */}
+      <div className="ml-auto w-36" style={FOOTER_SLIDER_ROW}>
+        <InspectorSlider
+          label="Size"
+          ariaLabel="Tile size"
+          min={TILE_SIZE.min}
+          max={TILE_SIZE.max}
+          value={tileSize}
+          defaultValue={TILE_SIZE.default}
+          onValueChange={setTileSize}
+        />
+      </div>
     </footer>
   );
 }

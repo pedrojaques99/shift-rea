@@ -37,7 +37,6 @@ export const SettingsNumberField = ({
       onClear={() => commit(null)}
       tooltip={false}
       maximumFractionDigits={4}
-      variant="plain"
       size="md"
       disabled={disabled}
       className={className}

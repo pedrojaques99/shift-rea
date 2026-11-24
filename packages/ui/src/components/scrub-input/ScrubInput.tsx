@@ -68,7 +68,6 @@ export interface ScrubInputProps {
   className?: string;
   /** Classes for the input, such as `text-right` for a column of numbers. */
   inputClassName?: string;
-  variant?: "filled" | "plain";
   size?: "compact" | "md";
 }
 
@@ -86,6 +85,15 @@ interface StepKeys {
  * the value, Shift for ten times the step, Alt for a tenth.
  *
  * @remarks
+ * It wears the Visant registry's `@visant/scrub-input` design: a bordered
+ * card, a mono uppercase label, a mono value, the border lit while
+ * scrubbing, and, when `min` and `max` are both set, a hairline ruler at
+ * the foot showing where the value sits in the range (on hover, focus and
+ * scrub). The registry component itself cannot host this field's
+ * behaviour (no mixed value, no unbounded range, one change per pixel
+ * instead of a preview and one commit, no sums or `=H` keys), so only its
+ * look is taken.
+ *
  * Scrubbing uses Base UI's `NumberField.ScrubArea` (pointer lock with a
  * virtual cursor that wraps at the window's edge). Escape during a scrub
  * cancels it and restores the value. A click without a drag focuses the
@@ -123,7 +131,6 @@ export function ScrubInput({
   disabled = false,
   className,
   inputClassName,
-  variant = "filled",
   size = "compact",
 }: ScrubInputProps) {
   const [editing, setEditing] = React.useState(false);
@@ -219,6 +226,7 @@ export function ScrubInput({
 
   const shownValue = scrub.value ?? value;
   const scrubbing = scrub.value !== null;
+  const ruler = rangeRatio(shownValue, min, max);
   const linkedAtRest = editText !== null && !editing;
   let shownText = "";
   if (editing) shownText = text;
@@ -228,8 +236,8 @@ export function ScrubInput({
     <span
       aria-hidden
       className={cn(
-        "flex shrink-0 items-center text-ui font-medium text-muted transition-colors",
-        "group-hover/scrub:text-secondary group-data-[scrubbing]/scrub:text-primary",
+        "flex shrink-0 items-center font-mono text-xs uppercase leading-none tracking-widest text-secondary transition-colors",
+        "group-hover/scrub:text-primary group-data-[scrubbing]/scrub:text-primary",
         labelPosition === "start" ? "pl-2" : "pr-2",
       )}
     >
@@ -275,9 +283,10 @@ export function ScrubInput({
         }}
       >
         <NumberFieldGroup
-          variant={variant}
+          variant="scrub"
+          data-scrubbing={scrubbing || undefined}
           className={cn(
-            "relative",
+            "group/field relative",
             size === "compact" ? "h-6" : "h-8",
             refusal && "ring-1 ring-error-ring",
           )}
@@ -313,7 +322,7 @@ export function ScrubInput({
               value={shownText}
               placeholder={linkedAtRest ? undefined : placeholder}
               className={cn(
-                "tabular-nums",
+                "font-mono tabular-nums",
                 editing ? "cursor-text" : "cursor-[inherit]",
                 labelNode && labelPosition === "start" && "pl-1.5",
                 labelNode && labelPosition === "end" && "pr-1.5",
@@ -363,8 +372,27 @@ export function ScrubInput({
               <MoveHorizontal aria-hidden className="size-5 text-primary" strokeWidth={2.25} />
             </NumberFieldScrubAreaCursor>
           </NumberFieldScrubArea>
+          {ruler === null ? null : (
+            <span
+              aria-hidden
+              className={cn(
+                "pointer-events-none absolute inset-x-0 bottom-0 h-px origin-left bg-accent opacity-0 transition-opacity duration-150 ease-out",
+                "group-hover/field:opacity-100 group-focus-within/field:opacity-100 group-data-[scrubbing]/field:opacity-100",
+              )}
+              // Follows the hand with no transition: a transition here would be latency.
+              style={{ transform: `scaleX(${ruler})` }}
+            />
+          )}
         </NumberFieldGroup>
       </NumberField>
     </Tooltip>
   );
+}
+
+/** Where `value` sits between `min` and `max`, 0 to 1; null without a finite range to measure against. */
+function rangeRatio(value: number | null, min?: number, max?: number): number | null {
+  if (value === null || min === undefined || max === undefined) return null;
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= min) return null;
+
+  return (Math.min(max, Math.max(min, value)) - min) / (max - min);
 }

@@ -47,13 +47,13 @@ async function variationSample(page: Page, glyphId: GlyphId): Promise<VariationS
 
 async function moveSliderToMiddle(page: Page): Promise<void> {
   const slider: Locator = await firstAxisSlider(page);
-  const track = await slider.evaluate((input) => {
-    const bounds = input.parentElement?.parentElement?.getBoundingClientRect();
-    if (!bounds) throw new Error("Expected slider track");
+  const min = Number(await slider.getAttribute("aria-valuemin"));
+  const max = Number(await slider.getAttribute("aria-valuemax"));
 
-    return { left: bounds.left, top: bounds.top, width: bounds.width, height: bounds.height };
-  });
-  await page.mouse.click(track.left + track.width / 2, track.top + track.height / 2);
+  // The slider row types on Enter: set the midpoint as a typed value.
+  await slider.press("Enter");
+  await page.keyboard.type(String((min + max) / 2));
+  await page.keyboard.press("Enter");
 }
 
 /** Captures the scene layer after the latest location has been rendered. */

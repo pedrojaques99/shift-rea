@@ -940,6 +940,14 @@ body {
   --brand: var(--color-accent);
   --border: var(--color-line-subtle);
   --muted-foreground: var(--color-secondary);
+  /* inspector-controls: its row tile is Shift's input fill; its focus ring is the accent. */
+  --muted: var(--color-input);
+  --ring: var(--color-accent);
+}
+
+/* inspector-controls: a slider over a mixed selection has no value to fill to. */
+.ic-slider-mixed .ic-slider-fill {
+  visibility: hidden;
 }
 
 /* Names Shift already uses for text grays mean surfaces inside the kit. */

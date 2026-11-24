@@ -11,10 +11,9 @@ import {
   MenuPositioner,
   MenuTrigger,
   Separator,
-  Slider,
   Tooltip,
 } from "@shift/ui";
-import { EditableSidebarInput } from "@shift/editor/ui";
+import { InspectorSlider } from "@/components/visant/ui/inspector-controls";
 import { useSignalState } from "@shift/editor/signals";
 import { useEditor } from "@/workspace/WorkspaceContext";
 import { CollapsibleSection, SidebarActionButton } from "@/components/sidebar";
@@ -26,6 +25,7 @@ import { ComponentConditions } from "@/lib/variation/ComponentConditions";
 import { ConditionChipSpace } from "@/lib/variation/ConditionChipSpace";
 import type { SelectedComponentCondition } from "@/types/conditions";
 import { ConditionChips } from "./ConditionChips";
+import { formatAxisValue, parseAxisText } from "./axisSliderText";
 import type { ComponentAxisKind, FollowedComponentAxis } from "@/types/componentLocation";
 import PlusIcon from "@/assets/general/plus.svg";
 
@@ -40,7 +40,7 @@ import PlusIcon from "@/assets/general/plus.svg";
  *
  * @remarks
  * Dragging a slider is one undo step. Components that differ on an axis show
- * Mixed until a value sets them all.
+ * Mixed, with no fill, until a value sets them all.
  */
 export const ComponentLocationSection = () => {
   const editor = useEditor();
@@ -88,35 +88,31 @@ export const ComponentLocationSection = () => {
           />
         }
       >
-        <div className="flex flex-col gap-1">
-          {state.set.map(({ axis, kind, value }) => (
-            <div key={axis.id} className="flex flex-col gap-1">
-              <span className="px-2 text-ui text-secondary">{axis.name}</span>
-              <div className="grid grid-cols-[minmax(0,1fr)_3.5rem_1.5rem] items-center gap-2 pl-2">
-                <div onPointerDown={beginDrag}>
-                  <Slider
-                    aria-label={`${axis.name} of the selected components`}
+        <div className="flex flex-col gap-1 pl-2">
+          {state.set.map(({ axis, kind, value }) => {
+            const shown = value ?? axis.kind.default;
+            return (
+              <div key={axis.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1">
+                <div
+                  // Mixed: no single value to point at, so no fill until a drag or a typed value sets one.
+                  className={value === null ? "ic-slider-mixed min-w-0" : "min-w-0"}
+                  // A drag is one undo step: opened on press, closed on release.
+                  onPointerDown={beginDrag}
+                  onPointerUp={endDrag}
+                  onPointerCancel={endDrag}
+                >
+                  <InspectorSlider
+                    label={axis.name}
+                    ariaLabel={`${axis.name} of the selected components`}
+                    value={shown}
                     min={axis.minimum}
                     max={axis.maximum}
                     step={kind === "glyph" ? 0.01 : 1}
-                    value={value ?? axis.kind.default}
-                    // Mixed: no single value to point at, so no thumb or fill until a drag sets one.
-                    thumbClassName={value === null ? "invisible" : undefined}
-                    indicatorClassName={value === null ? "invisible" : undefined}
+                    format={(next) => (value === null ? "Mixed" : formatAxisValue(next))}
+                    parse={(text) => parseAxisText(text, shown)}
                     onValueChange={(next) => setAxis(axis, next)}
-                    onValueCommitted={endDrag}
                   />
                 </div>
-                <EditableSidebarInput
-                  ariaLabel={`${axis.name} value`}
-                  value={value}
-                  placeholder="Mixed"
-                  tooltip={value === null ? "The selected components differ" : undefined}
-                  className="text-right"
-                  min={axis.minimum}
-                  max={axis.maximum}
-                  onValueChange={(next) => setAxis(axis, next)}
-                />
                 <Tooltip content={unsetTooltip(kind, axis.name)}>
                   <Button
                     variant="ghost"
@@ -128,8 +124,8 @@ export const ComponentLocationSection = () => {
                   </Button>
                 </Tooltip>
               </div>
-            </div>
-          ))}
+            );
+          })}
           {condition && <ComponentConditionChips condition={condition} conditions={conditions} />}
         </div>
       </CollapsibleSection>
