@@ -223,7 +223,7 @@ O alvo não é igualar, é **mais limpo, mais visual, com acabamento de ofício*
   - O `shift.describe` expõe o esquema completo dos `FontIntent`.
   - O guia ganhou o tópico `editing` (fluxo de type design), e a `SKILL.md` e as instruções do servidor agora dizem que o MCP edita.
 - Testes: 3 de integração (motor real) + 1 do sandbox. Agente de 10/10, MCP 9/9, sandbox 30/30. Typecheck ok.
-- Prova ao vivo: o H e o I foram desenhados pelo MCP no app aberto (`scripts/demo-HI.js`, `scripts/shift-exec.sh`).
+- Prova ao vivo: o H e o I foram desenhados pelo MCP no app aberto (`scripts/rea/demo-HI.js`, `scripts/rea/shift-exec.sh`).
 
 **Correções de Windows no fork (candidatas a PR upstream):**
 - `shift-bridge`: `dyn-symbols` no alvo GNU, e o build copia o addon GNU para o nome que o loader procura.
