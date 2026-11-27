@@ -171,6 +171,156 @@ impl GlyphLayer {
         Ok(())
     }
 
+    /// Rounds the corner at `point_id` with a circular arc reaching `radius`
+    /// units along each edge, as a corner radius does in a drawing app.
+    ///
+    /// The corner point becomes the arc's first end (keeping its id); the
+    /// arc's second end is a new on-curve point `end_id`, minted by the
+    /// caller. Each end lies on its edge (a curve edge is cut at that arc
+    /// length and keeps its shape), at most 45% of the edge away. The arc's
+    /// handles take the circle's length for the turn, 4/3 tan(turn/4) of the
+    /// radius. Done the same way in every master, the glyph stays compatible.
+    ///
+    /// Returns `false`, changing nothing, when the point is not a corner that
+    /// can be rounded: an open end, next to a quadratic segment, or a straight
+    /// run (a smooth point). The angle decides, not the smooth flag, so a
+    /// point flagged differently in another master still rounds alike there.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CoreError::PointInContourNotFound`] when the point is not in
+    /// the layer, and [`CoreError::DuplicatePointId`] when `end_id` is taken.
+    pub fn round_corner(
+        &mut self,
+        point_id: &PointId,
+        radius: f64,
+        end_id: PointId,
+    ) -> CoreResult<bool> {
+        use kurbo::ParamCurveArclen;
+        if self.has_point(&end_id) {
+            return Err(CoreError::DuplicatePointId(end_id));
+        }
+        let contour_id = self.require_point_contour(point_id)?;
+        let contour = self.require_contour_mut(&contour_id)?;
+        let count = contour.len();
+        let Some(at) = contour.point_index(point_id) else {
+            return Ok(false);
+        };
+        let points = contour.points().to_vec();
+        let corner = &points[at];
+        if radius <= 0.0
+            || count < 3
+            || !corner.is_on_curve()
+            || (!contour.is_closed() && (at == 0 || at + 1 == count))
+        {
+            return Ok(false);
+        }
+        // Neighbours around the closed contour: `index(-2)` is two points back.
+        let index = |offset: i8| {
+            let step = usize::from(offset.unsigned_abs());
+            if offset < 0 {
+                (at + count - step) % count
+            } else {
+                (at + step) % count
+            }
+        };
+        let here = corner.position();
+        let on = |k: usize| points[k].point_type() == PointType::OnCurve;
+        let off = |k: usize| points[k].point_type() == PointType::OffCurve;
+
+        // The incoming edge: a line from the previous on-curve point, or a cubic.
+        let (start, start_dir, incoming) = if on(index(-1)) {
+            let from = points[index(-1)].position();
+            let length = (here - from).hypot();
+            if length == 0.0 {
+                return Ok(false);
+            }
+            let dir = (here - from) / length;
+            (here - dir * radius.min(0.45 * length), dir, None)
+        } else if off(index(-1)) && off(index(-2)) && on(index(-3)) {
+            let curve = CubicBez::new(
+                points[index(-3)].position(),
+                points[index(-2)].position(),
+                points[index(-1)].position(),
+                here,
+            );
+            let length = curve.arclen(1e-3);
+            let t = curve.inv_arclen(length - radius.min(0.45 * length), 1e-3);
+            let left = curve.subsegment(0.0..t);
+            let tangent = left.p3 - left.p2;
+            let dir = tangent / tangent.hypot().max(f64::EPSILON);
+            (left.p3, dir, Some((left.p1, left.p2)))
+        } else {
+            return Ok(false);
+        };
+        // The outgoing edge.
+        let (end, end_dir, outgoing) = if on(index(1)) {
+            let to = points[index(1)].position();
+            let length = (to - here).hypot();
+            if length == 0.0 {
+                return Ok(false);
+            }
+            let dir = (to - here) / length;
+            (here + dir * radius.min(0.45 * length), dir, None)
+        } else if off(index(1)) && off(index(2)) && on(index(3)) {
+            let curve = CubicBez::new(
+                here,
+                points[index(1)].position(),
+                points[index(2)].position(),
+                points[index(3)].position(),
+            );
+            let length = curve.arclen(1e-3);
+            let t = curve.inv_arclen(radius.min(0.45 * length), 1e-3);
+            let right = curve.subsegment(t..1.0);
+            let tangent = right.p1 - right.p0;
+            let dir = tangent / tangent.hypot().max(f64::EPSILON);
+            (right.p0, dir, Some((right.p1, right.p2)))
+        } else {
+            return Ok(false);
+        };
+
+        // Whether the point is a corner at all: the edges' directions at the
+        // point itself (a smooth point turns by nothing there).
+        let toward = |k: usize| points[k].position() - here;
+        let (arrive, leave) = (-toward(index(-1)), toward(index(1)));
+        if arrive.hypot() == 0.0 || leave.hypot() == 0.0 {
+            return Ok(false);
+        }
+        let bend = libm::atan2(arrive.cross(leave), arrive.dot(leave)).abs();
+        if bend < 0.5_f64.to_radians() {
+            return Ok(false);
+        }
+        // The turn the arc makes, between the edges where it meets them.
+        let turn = libm::atan2(start_dir.cross(end_dir), start_dir.dot(end_dir)).abs();
+        if turn < 1e-3 {
+            return Ok(false);
+        }
+        let ratio = (4.0 / 3.0) * libm::tan(turn / 4.0) / libm::tan(turn / 2.0).max(1e-6);
+        let handle_in = start + start_dir * ((here - start).hypot() * ratio);
+        let handle_out = end - end_dir * ((end - here).hypot() * ratio);
+
+        let points = contour.points_mut();
+        if let Some((c0, c1)) = incoming {
+            points[index(-2)].set_position(c0.x, c0.y);
+            points[index(-1)].set_position(c1.x, c1.y);
+        }
+        if let Some((c0, c1)) = outgoing {
+            points[index(1)].set_position(c0.x, c0.y);
+            points[index(2)].set_position(c1.x, c1.y);
+        }
+        points[at].set_position(start.x, start.y);
+        points[at].set_smooth(true);
+        points.splice(
+            at + 1..at + 1,
+            [
+                Point::off_curve_at(handle_in),
+                Point::off_curve_at(handle_out),
+                Point::at(end_id, end, PointType::OnCurve, true),
+            ],
+        );
+        Ok(true)
+    }
+
     /// Splits the segment from `start_id` to `end_id` at `t`, keeping its
     /// shape: a line gains an on-curve point; a quadratic or cubic is cut in
     /// two by de Casteljau, its new on-curve point smooth, its new controls

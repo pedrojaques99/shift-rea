@@ -155,6 +155,7 @@ export function viewMenuItems(
     { type: "separator" },
     item("view.toggleGrid"),
     item("view.toggleSnapToGrid"),
+    item("view.toggleOutlineIssues"),
     { type: "separator" },
     {
       label: "Interface Size",

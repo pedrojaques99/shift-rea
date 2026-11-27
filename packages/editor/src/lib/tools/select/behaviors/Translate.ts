@@ -17,6 +17,7 @@ import type { Select } from "../Select";
 import { TranslateInteraction } from "../TranslateInteraction";
 import { pointSlide } from "../PointSlide";
 import { EndpointDrop } from "../EndpointDrop";
+import { PointMerge } from "../PointMerge";
 
 type TranslatingState = Extract<SelectState, { type: "translating" }>;
 
@@ -271,7 +272,10 @@ export class Translate implements SelectBehavior {
     return PositionReference.position(Bounds.center(bounds));
   }
 
-  /** Commits the move; an open end dropped on another open end also closes or joins its contour. */
+  /**
+   * Commits the move; an open end dropped on another open end also closes or joins its
+   * contour, and a point dropped on its neighbour along the contour merges into it.
+   */
   #commitDrag(editor: Editor): void {
     const drag = this.#drag;
     if (!drag) return;
@@ -279,7 +283,16 @@ export class Translate implements SelectBehavior {
     const drop = EndpointDrop.fromSelection(editor);
     const target = drop?.targetWithin(editor.hitRadiusIn(drop.node)) ?? null;
     if (!drop || !target) {
-      drag.commit();
+      const merge = PointMerge.fromSelection(editor);
+      const into = merge?.targetWithin(editor.hitRadiusIn(merge.node)) ?? null;
+      if (!merge || !into) {
+        drag.commit();
+        return;
+      }
+      editor.transaction("Merge Points", () => {
+        drag.commit();
+        editor.mergePoints(merge.pointId, into);
+      });
       return;
     }
 

@@ -557,6 +557,51 @@ impl GlyphLayer {
         let contour_id = self.require_point_contour(point_id)?;
         self.require_point_mut(&contour_id, point_id)?
             .set_smooth(smooth);
+        if smooth {
+            self.line_up_handles(&contour_id, point_id)?;
+        }
+        Ok(())
+    }
+
+    /// Lines up the handles of a point made smooth, as Glyphs and Figma do: the
+    /// point stays, each handle keeps its length, and both turn onto one line.
+    /// A line on one side sets that line; two handles take the line between
+    /// their tips. A corner between two lines, or an open end, is left alone.
+    fn line_up_handles(&mut self, contour_id: &ContourId, point_id: &PointId) -> CoreResult<()> {
+        let contour = self.require_contour_mut(contour_id)?;
+        let count = contour.len();
+        let Some(at) = contour.point_index(point_id) else {
+            return Ok(());
+        };
+        if count < 3 || (!contour.is_closed() && (at == 0 || at + 1 == count)) {
+            return Ok(());
+        }
+        let (previous, next) = ((at + count - 1) % count, (at + 1) % count);
+        let points = contour.points();
+        let here = points[at].position();
+        let (before, after) = (points[previous].position(), points[next].position());
+        let (incoming, outgoing) = (!points[previous].is_on_curve(), !points[next].is_on_curve());
+        let direction = match (incoming, outgoing) {
+            (false, false) => return Ok(()),
+            (false, true) => here - before,
+            (true, false) => after - here,
+            (true, true) => after - before,
+        };
+        let length = direction.hypot();
+        if length == 0.0 {
+            return Ok(());
+        }
+        let unit = direction / length;
+        let (back, ahead) = ((here - before).hypot(), (after - here).hypot());
+        let points = contour.points_mut();
+        if incoming {
+            let target = here - unit * back;
+            points[previous].set_position(target.x, target.y);
+        }
+        if outgoing {
+            let target = here + unit * ahead;
+            points[next].set_position(target.x, target.y);
+        }
         Ok(())
     }
 
@@ -583,8 +628,12 @@ impl GlyphLayer {
         let point = self.require_point_mut(&contour_id, point_id)?;
 
         point.toggle_smooth();
+        let smooth = point.is_smooth();
+        if smooth {
+            self.line_up_handles(&contour_id, point_id)?;
+        }
 
-        Ok(point.is_smooth())
+        Ok(smooth)
     }
 
     /// Removes points, then any contour left empty, and returns the removed contours' ids.

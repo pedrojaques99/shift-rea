@@ -1,3 +1,4 @@
+import { MIRRORED_AXIS_TAGS } from "@shift/editor";
 import { useSignalState } from "@shift/editor/signals";
 import { axisValue, withExternalAxisValue } from "@shift/editor/variation";
 import type { Axis } from "@shift/types";
@@ -13,7 +14,7 @@ import {
   MenuTrigger,
   Tooltip,
 } from "@shift/ui";
-import { InspectorSlider } from "@/components/visant/ui/inspector-controls";
+import { InspectorSlider, InspectorToggle } from "@/components/visant/ui/inspector-controls";
 import VerticalElipsis from "@/assets/general/vertical-ellipsis.svg";
 import { useSettingsNavigation } from "@/context/SettingsNavigationContext";
 import { useExternalLocation } from "@/hooks/useExternalLocation";
@@ -32,6 +33,17 @@ export const AxesPanel = ({ actions = true }: { readonly actions?: boolean }) =>
   const axes = useSignalState(session.font.externalAxesCell).filter(
     (axis) => !axis.isDiscrete && axis.varies,
   );
+  // Where the masters sit on each axis: the slider grabs them, so a master is easy to land on and edit.
+  const sources = useSignalState(session.font.sourcesCell);
+  const mirrorPairs = useSignalState(session.editor.mirrorAxisPairsCell);
+  const masterValues = (axis: Axis): number[] => {
+    const values = new Set<number>();
+    for (const source of sources) {
+      const value = session.font.externalLocationForSource(source.id)?.get(axis.id);
+      if (value !== undefined) values.add(value);
+    }
+    return [...values];
+  };
 
   if (axes.length === 0) return <p className="pl-2 text-ui text-muted">No varying axes</p>;
 
@@ -42,30 +54,44 @@ export const AxesPanel = ({ actions = true }: { readonly actions?: boolean }) =>
         const setValue = (next: number) =>
           setExternalLocation(withExternalAxisValue(location, axis, next));
 
+        const mirrored = MIRRORED_AXIS_TAGS.has(axis.tag) && session.mode === "workspace";
+
         return (
-          <div
-            key={axis.id}
-            title={axisHint(axis)}
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1"
-          >
-            <InspectorSlider
-              label={axis.name}
-              value={value}
-              min={axis.minimum}
-              max={axis.maximum}
-              step={0.01}
-              defaultValue={axis.default}
-              format={formatAxisValue}
-              parse={(text) => parseAxisText(text, value)}
-              onValueChange={setValue}
-            />
-            {actions && session.mode === "workspace" ? (
-              <AxisActionsMenu
-                axis={axis}
-                onEdit={() => settings.open({ category: "axes", axisId: axis.id })}
-                onReset={() => setValue(axis.kind.default)}
-                onDelete={() => session.font.deleteAxis(axis.id)}
+          <div key={axis.id} className="flex flex-col gap-1">
+            <div
+              title={axisHint(axis)}
+              className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-1"
+            >
+              <InspectorSlider
+                label={axis.name}
+                value={value}
+                min={axis.minimum}
+                max={axis.maximum}
+                step={0.01}
+                defaultValue={axis.default}
+                detents={masterValues(axis)}
+                format={formatAxisValue}
+                parse={(text) => parseAxisText(text, value)}
+                onValueChange={setValue}
               />
+              {actions && session.mode === "workspace" ? (
+                <AxisActionsMenu
+                  axis={axis}
+                  onEdit={() => settings.open({ category: "axes", axisId: axis.id })}
+                  onReset={() => setValue(axis.kind.default)}
+                  onDelete={() => session.font.deleteAxis(axis.id)}
+                  onMatchSides={mirrored ? () => session.editor.matchMirroredPairs() : undefined}
+                />
+              ) : null}
+            </div>
+            {mirrored ? (
+              <div title="While a glyph is drawn the same at both ends of this axis (it has no traps), an edit at one end goes to the other too. Turn off to draw one end alone.">
+                <InspectorToggle
+                  label="Edit both ends together"
+                  checked={mirrorPairs}
+                  onCheckedChange={(on) => session.editor.setMirrorAxisPairs(on)}
+                />
+              </div>
             ) : null}
           </div>
         );
@@ -79,9 +105,17 @@ interface AxisActionsMenuProps {
   onEdit: () => void;
   onReset: () => void;
   onDelete: () => void;
+  /** Draws the other end of the axis like this one, for a glyph whose ends drifted apart. */
+  onMatchSides?: () => void;
 }
 
-const AxisActionsMenu = ({ axis, onEdit, onReset, onDelete }: AxisActionsMenuProps) => (
+const AxisActionsMenu = ({
+  axis,
+  onEdit,
+  onReset,
+  onDelete,
+  onMatchSides,
+}: AxisActionsMenuProps) => (
   <Menu modal={false}>
     <Tooltip content={`Actions for ${axis.name}`}>
       <MenuTrigger
@@ -95,6 +129,9 @@ const AxisActionsMenu = ({ axis, onEdit, onReset, onDelete }: AxisActionsMenuPro
         <MenuPopup>
           <MenuItem onClick={onEdit}>Edit</MenuItem>
           <MenuItem onClick={onReset}>Reset</MenuItem>
+          {onMatchSides ? (
+            <MenuItem onClick={onMatchSides}>Copy this glyph to the other end</MenuItem>
+          ) : null}
           <MenuSeparator />
           <MenuItem onClick={onDelete}>Delete</MenuItem>
         </MenuPopup>

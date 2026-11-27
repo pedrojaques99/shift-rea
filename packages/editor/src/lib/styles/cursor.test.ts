@@ -27,6 +27,7 @@ const CUSTOM_CURSORS: CursorType[] = [
   { type: "crosshair-square" },
   { type: "pen" },
   { type: "pen-add" },
+  { type: "pen-remove" },
   { type: "pen-end" },
   { type: "pen-close" },
   { type: "ew-resize" },

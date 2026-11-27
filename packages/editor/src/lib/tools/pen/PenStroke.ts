@@ -166,8 +166,9 @@ export class PenStroke {
     this.#pen.editor.selection.select([pointId]);
   }
 
+  /** Adds a point on a segment, in every master, so the glyph keeps interpolating. */
   splitSegment(segmentId: SegmentId, t: number): PointId | null {
-    return this.#layer.splitSegment(segmentId, t);
+    return this.#pen.editor.splitSegmentEverywhere(this.#layer, segmentId, t);
   }
 
   commitAnchor(position: Point2D): PointId | null {

@@ -160,6 +160,13 @@ const viewCommands: Command[] = [
     run: (ctx) => ctx.renderer.run("view.toggleSnapToGrid"),
   },
   {
+    id: "view.toggleOutlineIssues",
+    effect: "view",
+    label: "Show Outline Issues",
+    enabled: (ctx) => ctx.document.hasWorkspace(),
+    run: (ctx) => ctx.renderer.run("view.toggleOutlineIssues"),
+  },
+  {
     id: "ui.increaseSize",
     effect: "view",
     label: "Increase Interface Size",
@@ -308,6 +315,14 @@ const glyphCommands: Command[] = [
     run: (ctx) => ctx.renderer.run("glyph.addComponent"),
   },
   {
+    id: "glyph.goTo",
+    // Opens a window dialog: nothing an agent runs.
+    effect: "app",
+    label: "Go to Glyph…",
+    enabled: (ctx) => ctx.document.hasWorkspace(),
+    run: (ctx) => ctx.renderer.run("glyph.goTo"),
+  },
+  {
     id: "glyph.addAnchor",
     effect: "font",
     label: "Add Anchor",
@@ -327,6 +342,20 @@ const glyphCommands: Command[] = [
     label: "Make First Point",
     enabled: (ctx) => ctx.document.hasWorkspace(),
     run: (ctx) => ctx.renderer.run("glyph.makeFirstPoint"),
+  },
+  {
+    id: "glyph.fixOutlineIssue",
+    effect: "font",
+    label: "Fix Outline Issue",
+    enabled: (ctx) => ctx.document.hasWorkspace(),
+    run: (ctx) => ctx.renderer.run("glyph.fixOutlineIssue"),
+  },
+  {
+    id: "glyph.fixAllOutlineIssues",
+    effect: "font",
+    label: "Fix All Outline Issues in Glyph",
+    enabled: (ctx) => ctx.document.hasWorkspace(),
+    run: (ctx) => ctx.renderer.run("glyph.fixAllOutlineIssues"),
   },
   {
     id: "glyph.reverseSelectedContour",

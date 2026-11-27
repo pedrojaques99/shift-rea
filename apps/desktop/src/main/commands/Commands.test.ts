@@ -29,6 +29,7 @@ describe("every app command declares what running it changes", () => {
       "view.zoomOut",
       "view.toggleGrid",
       "view.toggleSnapToGrid",
+      "view.toggleOutlineIssues",
       "ui.increaseSize",
       "ui.decreaseSize",
       "ui.resetSize",

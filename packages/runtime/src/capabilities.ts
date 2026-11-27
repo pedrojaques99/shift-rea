@@ -816,7 +816,23 @@ export interface FontCheckFinding {
   sourceId: SourceId | null;
   /** Zero-based contour index, when the problem is in one contour. */
   contour: number | null;
+  /** The points the problem sits at, in every layer it concerns. */
+  points: PointId[];
   message: string;
+  /**
+   * The edit that resolves it, when one can be computed: point positions to
+   * set (`setPositions`/`movePoints` per layer) and points to delete with a
+   * fitted curve (`deletePoints`, mode `fit`). Apply both as one step.
+   */
+  fix: FontCheckFix | null;
+}
+
+/** An edit that resolves a {@link FontCheckFinding}. */
+export interface FontCheckFix {
+  /** What the fix does, as a menu would say it: `Line up handles`. */
+  label: string;
+  moves: { layerId: LayerId; pointId: PointId; x: number; y: number }[];
+  removals: { layerId: LayerId; pointId: PointId }[];
 }
 
 /** What `font.check` found. */

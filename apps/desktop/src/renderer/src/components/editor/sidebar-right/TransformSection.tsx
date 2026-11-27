@@ -20,6 +20,7 @@ import {
   scrubSelectionScale,
 } from "@/lib/editor/selectionScrub";
 import type { ScrubSession } from "@shift/ui";
+import { SquareRoundCorner } from "lucide-react";
 
 import RotateIcon from "@/assets/sidebar-right/rotate.svg";
 import RotateCwIcon from "@/assets/sidebar-right/rotate-cw.svg";
@@ -139,6 +140,9 @@ export const TransformSection = () => {
   const isEditing = useSignalState(editor.isEditingCell);
   const selectionBounds = useSelectionBounds();
   const [rotation, setRotation] = useState(0);
+
+  // Corners among the selected points: what a corner radius rounds.
+  const cornerCount = useMemo(() => editor.selectedCorners().length, [editor, selection]);
 
   const layer = isEditing ? null : (positionSelection?.layer ?? null);
   const editable = positionSelection !== null || componentSelection !== null;
@@ -364,6 +368,30 @@ export const TransformSection = () => {
           </div>
         </div>
       </div>
+      {cornerCount > 0 ? (
+        <div className="flex flex-col gap-2">
+          <div className="text-ui text-secondary">
+            Corner radius{cornerCount > 1 ? ` · ${cornerCount} corners` : ""}
+          </div>
+          <div className="w-24 shrink-0">
+            {/* Rounds the selected corners on Enter, in every master being edited, as one
+                undo step; the arc replaces the corner, so the field starts empty again. */}
+            <SidebarNumberField
+              key={selection.ids.join(",")}
+              ariaLabel="Corner radius"
+              label={<SquareRoundCorner className="h-4 w-4 text-sidebar-icon" />}
+              value={null}
+              placeholder="0"
+              min={0}
+              step={1}
+              disabled={isEditing}
+              onValueCommit={(radius) => {
+                if (radius > 0) editor.roundSelectedCorners(radius);
+              }}
+            />
+          </div>
+        </div>
+      ) : null}
     </SidebarSection>
   );
 };

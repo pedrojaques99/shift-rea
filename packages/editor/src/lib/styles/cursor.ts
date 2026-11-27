@@ -42,6 +42,8 @@ export function cursorToCSS(cursor: CursorType): string {
       return `-webkit-image-set(url("../cursors/pen@32.svg") 1x, url("../cursors/pen@64.svg") 2x) 6 3, crosshair`;
     case "pen-add":
       return `-webkit-image-set(url("../cursors/pen@32-add.svg") 1x, url("../cursors/pen@64-add.svg") 2x) 6 3, crosshair`;
+    case "pen-remove":
+      return `-webkit-image-set(url("../cursors/pen@32-remove.svg") 1x, url("../cursors/pen@64-remove.svg") 2x) 6 3, crosshair`;
     case "pen-end":
       return `-webkit-image-set(url("../cursors/pen@32-end.svg") 1x, url("../cursors/pen@64-end.svg") 2x) 6 3, crosshair`;
     case "pen-close":

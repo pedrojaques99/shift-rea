@@ -15,6 +15,7 @@ import type {
   RemoveComponents,
   RemovePoints,
   ReverseContour,
+  RoundCorners,
   SplitSegment,
   UpgradeLineToCubic,
   DeletePoints,
@@ -118,6 +119,13 @@ export class LayerIntents<TResult = PendingEditId> {
     return this.#sink({
       kind: "splitSegment",
       splitSegment: { layerId: this.#layerId, ...payload },
+    });
+  }
+
+  roundCorners(payload: Payload<RoundCorners>): TResult {
+    return this.#sink({
+      kind: "roundCorners",
+      roundCorners: { layerId: this.#layerId, ...payload },
     });
   }
 

@@ -22,7 +22,17 @@ export class ToggleSmooth implements SelectBehavior {
     const point = layer.point(object.pointId);
     if (!point || !Validate.isOnCurve(point)) return false;
 
-    layer.toggleSmooth(object.pointId);
+    // The same point in every master being edited, and across Ink Traps while the glyph
+    // is drawn the same at both ends, turns smooth or corner together.
+    const smooth = !point.smooth;
+    const others = ctx.editor.positionSelection([event.target.id])?.additionalLayers ?? [];
+    ctx.editor.transaction(smooth ? "Make Smooth" : "Make Corner", () => {
+      layer.setPointSmooth(object.pointId, smooth);
+      for (const other of others) {
+        const [pointId] = other.targets.points;
+        if (pointId) other.layer.setPointSmooth(pointId, smooth);
+      }
+    });
     return true;
   }
 }

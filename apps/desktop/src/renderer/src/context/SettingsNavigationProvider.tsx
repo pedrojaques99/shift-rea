@@ -4,6 +4,7 @@ import { glyphColorOf, isGlyphColorCommandId } from "@shared/commands";
 import type { MarkColor } from "@shift/types";
 import { SettingsDialog } from "@/components/chrome/settings/SettingsDialog";
 import { ComponentPickerDialog } from "@/components/editor/ComponentPickerDialog";
+import { GlyphSearchDialog } from "@/components/editor/GlyphSearchDialog";
 import { getShiftHost } from "@/host/shiftHost";
 import { runRendererCommand } from "@/lib/commands/rendererCommands";
 import { tagTargets } from "@/lib/glyph-grid/tagTargets";
@@ -23,6 +24,7 @@ export const SettingsNavigationProvider = ({ children }: { children: ReactNode }
   pathnameRef.current = pathname;
   const [target, setTarget] = useState<SettingsTarget | null>(null);
   const [componentPickerOpen, setComponentPickerOpen] = useState(false);
+  const [glyphSearchOpen, setGlyphSearchOpen] = useState(false);
   const { setOpen: setExportOpen, setPopoverOpen: setExportPopoverOpen } = useExport();
   const showPreviewNotice = usePreviewNotice();
   const open = useCallback((next: SettingsTarget) => setTarget(next), []);
@@ -55,6 +57,10 @@ export const SettingsNavigationProvider = ({ children }: { children: ReactNode }
           session.editor.setMarkColor(tagTargets(session, pathnameRef.current), color);
           return;
         }
+        if (id === "glyph.goTo") {
+          if (session.mode === "workspace") setGlyphSearchOpen(true);
+          return;
+        }
         if (id === "glyph.addComponent") {
           if (session.mode === "workspace" && session.editor.scene.only("glyph") !== null) {
             setComponentPickerOpen(true);
@@ -82,6 +88,7 @@ export const SettingsNavigationProvider = ({ children }: { children: ReactNode }
     <SettingsNavigationContext.Provider value={navigation}>
       {children}
       <ComponentPickerDialog open={componentPickerOpen} onOpenChange={setComponentPickerOpen} />
+      <GlyphSearchDialog open={glyphSearchOpen} onOpenChange={setGlyphSearchOpen} />
       <SettingsDialog
         target={target}
         canAuthor={session.mode === "workspace"}

@@ -32,10 +32,13 @@ export type CommandId =
   | "edit.selectAll"
   | "edit.deselect"
   | "glyph.addComponent"
+  | "glyph.goTo"
   | "glyph.addAnchor"
   | "glyph.decomposeComponents"
   | "glyph.reverseSelectedContour"
   | "glyph.makeFirstPoint"
+  | "glyph.fixOutlineIssue"
+  | "glyph.fixAllOutlineIssues"
   | GlyphColorCommandId
   | "window.showHome"
   | "tab.close"
@@ -46,6 +49,7 @@ export type CommandId =
   | "view.zoomOut"
   | "view.toggleGrid"
   | "view.toggleSnapToGrid"
+  | "view.toggleOutlineIssues"
   | "ui.increaseSize"
   | "ui.decreaseSize"
   | "ui.resetSize";
@@ -164,8 +168,11 @@ export const commandShortcuts = {
   "edit.paste": shortcut("v"),
   "edit.selectAll": shortcut("a"),
   "glyph.addComponent": shortcut("c", true),
+  "glyph.goTo": shortcut("k"),
   "view.toggleGrid": canvasKey("g"),
   "view.toggleSnapToGrid": canvasKey("g", true),
+  "glyph.fixOutlineIssue": canvasKey("f"),
+  "glyph.fixAllOutlineIssues": canvasKey("f", true),
   ...glyphColorShortcuts(),
 } satisfies Partial<Record<CommandId, CommandShortcut>>;
 
@@ -222,6 +229,7 @@ export type RendererCommandId =
   | "app.showSettings"
   | "file.export"
   | "glyph.addComponent"
+  | "glyph.goTo"
   | "tab.close";
 
 /** Identifies a renderer command that acts on the current editor or text focus. */
@@ -242,4 +250,7 @@ export type EditorCommandId =
   | "glyph.addAnchor"
   | "glyph.decomposeComponents"
   | "glyph.reverseSelectedContour"
-  | "glyph.makeFirstPoint";
+  | "glyph.makeFirstPoint"
+  | "glyph.fixOutlineIssue"
+  | "glyph.fixAllOutlineIssues"
+  | "view.toggleOutlineIssues";

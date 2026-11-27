@@ -3,7 +3,7 @@
 //! font's records.
 
 use pack::{Bytes, Pack};
-use shift_font::check::{Finding, Severity};
+use shift_font::check::{Finding, Fix, Severity};
 use shift_font::wire::replacement::FontReplacement;
 use shift_font::wire::{
   AxisMapping, AxisMappingBasis, FontMetadata, FontMetrics, GlyphChangedEntities,
@@ -12,7 +12,8 @@ use shift_font::wire::{
 };
 use shift_font::{
   DesignLocation, FontChangeImpact, FontChangeSet, FontIntent, FontIntentSet, Glyph, GlyphId,
-  GlyphPreview, GlyphRecordChanges, GlyphRecords, LayerId, Location, OpenTypeCategories, SourceId,
+  GlyphPreview, GlyphRecordChanges, GlyphRecords, LayerId, Location, OpenTypeCategories, PointId,
+  SourceId,
 };
 use shift_workspace::{
   AcquireScope, DocumentIdentity as StoreDocumentIdentity, FontWorkspace, NewWorkspace,
@@ -428,7 +429,7 @@ impl From<SaveState> for shift_store::SaveState {
 
 /// One problem a font check found, with its stable code (`O008`), kebab-case
 /// name (`missing-extreme`) and how much it matters.
-#[derive(Clone, Debug, PartialEq, Eq, Pack)]
+#[derive(Clone, Debug, PartialEq, Pack)]
 pub(crate) struct FontFinding {
   pub code: String,
   pub name: String,
@@ -438,7 +439,64 @@ pub(crate) struct FontFinding {
   pub source_id: Option<SourceId>,
   /// Zero-based contour index, when the problem is in one contour.
   pub contour: Option<u32>,
+  /// The points the problem sits at, in every layer it concerns.
+  pub points: Vec<PointId>,
   pub message: String,
+  /// The edit that resolves the problem, when one can be computed.
+  pub fix: Option<FindingFix>,
+}
+
+/// Points to move and points to remove, in any of the glyph's layers, that
+/// resolve a finding when applied together as one step.
+#[derive(Clone, Debug, PartialEq, Pack)]
+pub(crate) struct FindingFix {
+  /// What the fix does, as a menu would say it.
+  pub label: String,
+  pub moves: Vec<FindingPointMove>,
+  /// Removed with the curve fitted across the gap, as Delete does.
+  pub removals: Vec<FindingPointRemoval>,
+}
+
+/// A point a fix moves, to an absolute position in its layer.
+#[derive(Clone, Debug, PartialEq, Pack)]
+pub(crate) struct FindingPointMove {
+  pub layer_id: LayerId,
+  pub point_id: PointId,
+  pub x: f64,
+  pub y: f64,
+}
+
+/// A point a fix removes from its layer.
+#[derive(Clone, Debug, PartialEq, Pack)]
+pub(crate) struct FindingPointRemoval {
+  pub layer_id: LayerId,
+  pub point_id: PointId,
+}
+
+impl From<Fix> for FindingFix {
+  fn from(fix: Fix) -> Self {
+    Self {
+      label: fix.label,
+      moves: fix
+        .moves
+        .into_iter()
+        .map(|step| FindingPointMove {
+          layer_id: step.layer_id,
+          point_id: step.point_id,
+          x: step.x,
+          y: step.y,
+        })
+        .collect(),
+      removals: fix
+        .removals
+        .into_iter()
+        .map(|removal| FindingPointRemoval {
+          layer_id: removal.layer_id,
+          point_id: removal.point_id,
+        })
+        .collect(),
+    }
+  }
 }
 
 impl From<Finding> for FontFinding {
@@ -454,7 +512,9 @@ impl From<Finding> for FontFinding {
       glyph_id: finding.glyph,
       source_id: finding.source,
       contour: finding.contour.and_then(|index| u32::try_from(index).ok()),
+      points: finding.points,
       message: finding.message,
+      fix: finding.fix.map(FindingFix::from),
     }
   }
 }

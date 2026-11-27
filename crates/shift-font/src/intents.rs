@@ -157,6 +157,7 @@ font_intents! {
         ApplyBooleanOp,
         DeletePoints,
         SplitSegment,
+        RoundCorners,
         UpgradeLineToCubic,
         JoinContours,
         TransformPoints,

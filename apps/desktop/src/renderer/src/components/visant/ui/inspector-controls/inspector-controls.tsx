@@ -184,11 +184,29 @@ export interface InspectorSliderProps {
   /** Texto digitado → valor. Obrigatório quando `format` muda de escala. */
   parse?: (s: string) => number;
   disabled?: boolean;
+  /** Valores onde o arrasto gruda (os masters de um eixo): a poucos pixels de um, vira ele exato. Shift solta. */
+  detents?: readonly number[];
   /** Mudança contínua: arrasto e setas. Chega muitas vezes por gesto. */
   onValueChange: (v: number) => void;
   /** Mudança de uma vez: valor digitado e duplo clique de volta ao padrão. Sem ela, vai para `onValueChange`. */
   onValueCommit?: (v: number) => void;
   className?: string;
+}
+
+/** A quantos pixels de um ponto de grude o arrasto cai nele. */
+const GRUDE_PX = 6;
+
+/** `v`, ou o ponto de grude mais perto dele quando está a menos de `raio`. */
+function grudar(v: number, detents: readonly number[] | undefined, raio: number): number {
+  let melhor = v;
+  let distancia = raio;
+  for (const d of detents ?? []) {
+    if (Math.abs(d - v) <= distancia) {
+      melhor = d;
+      distancia = Math.abs(d - v);
+    }
+  }
+  return melhor;
 }
 
 export function InspectorSlider({
@@ -204,6 +222,7 @@ export function InspectorSlider({
   format,
   parse = parseNumber,
   disabled,
+  detents,
   onValueChange,
   onValueCommit,
   className,
@@ -276,7 +295,8 @@ export function InspectorSlider({
         }
         // Shift afina o arrasto: a linha inteira passa a valer um quinto da faixa.
         const fino = e.shiftKey ? 0.2 : 1;
-        const v = prende(g.v + (dx / g.w) * (max - min) * fino);
+        const livre = prende(g.v + (dx / g.w) * (max - min) * fino);
+        const v = e.shiftKey ? livre : grudar(livre, detents, ((max - min) * GRUDE_PX) / g.w);
         if (v !== g.ultimo) {
           g.ultimo = v;
           onValueChange(v);
@@ -323,6 +343,7 @@ export function InspectorSlider({
     >
       <span className="ic-slider-fill" style={{ left: `${Math.min(origem, atual)}%`, width: `${Math.abs(atual - origem)}%` }} aria-hidden />
       {defaultValue !== undefined ? <span className="ic-slider-mark" style={{ left: `${pct(defaultValue)}%` }} aria-hidden /> : null}
+      {detents?.filter((d) => d !== defaultValue).map((d) => <span key={d} className="ic-slider-mark" style={{ left: `${pct(d)}%` }} aria-hidden />)}
       <span className="ic-label">{label}</span>
       {editando ? (
         <input

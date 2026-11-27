@@ -26,6 +26,7 @@ export type CursorType =
   | { type: "crosshair-square" }
   | { type: "pen" }
   | { type: "pen-add" }
+  | { type: "pen-remove" }
   | { type: "pen-end" }
   | { type: "pen-close" }
   | { type: "not-allowed" }

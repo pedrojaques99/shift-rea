@@ -560,6 +560,16 @@ export interface EditorTestSurface extends EditorReads, EditorActions, FontBuild
   fontOverview(): FontSummary;
   /** The font checks' findings, as agents read them, for the glyphs named or the whole font. */
   fontCheck(glyphNames?: readonly string[]): Promise<FontCheck>;
+  /** Reviews the open glyph for craft problems now, and names each one it found, in every master. */
+  reviewOutline(): Promise<readonly string[]>;
+  /** The craft problems the canvas marks on the layer being edited, by name. */
+  markedOutlineIssues(): readonly string[];
+  /** Rounds the selected corners with `radius`, as the Corner radius field does; returns how many. */
+  roundSelectedCorners(radius: number): number;
+  /** Turns on or off editing both ends of the Ink Traps axis together, as the Axes panel switch does. */
+  setMirrorAxisPairs(on: boolean): void;
+  /** Draws the open glyph at the other end of the Ink Traps axis like this end; returns how many masters changed. */
+  matchMirroredPairs(): number;
   /** The font's source named `name`, or null. */
   source(selector: SourceSelection): Source | null;
   /**

@@ -46,7 +46,8 @@ function windowContext(editor: EditorTestSurface, state: { hasWorkspace: boolean
           id === "app.showSettings" ||
           id === "file.export" ||
           id === "tab.close" ||
-          id === "glyph.addComponent";
+          id === "glyph.addComponent" ||
+          id === "glyph.goTo";
         if (windowCommand || isGlyphColorCommandId(id)) {
           unavailable();
           return;
@@ -96,6 +97,7 @@ describe("agents run the view commands the window's menu runs, and nothing else"
       "view.zoomOut",
       "view.toggleGrid",
       "view.toggleSnapToGrid",
+      "view.toggleOutlineIssues",
       "ui.increaseSize",
       "ui.decreaseSize",
       "ui.resetSize",

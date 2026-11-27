@@ -1029,6 +1029,44 @@ impl LayerIntent for SplitSegment {
     }
 }
 
+/// Rounds corners with an arc of one radius: see [`GlyphLayer::round_corner`].
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "pack", derive(pack::Pack))]
+pub struct RoundCorners {
+    pub layer_id: LayerId,
+    /// Each corner point, with the id its new second arc end takes, minted by the caller.
+    pub corners: Vec<CornerToRound>,
+    pub radius: f64,
+}
+
+/// One corner [`RoundCorners`] rounds.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "pack", derive(pack::Pack))]
+pub struct CornerToRound {
+    pub point_id: PointId,
+    pub end_id: PointId,
+}
+
+impl LayerIntent for RoundCorners {
+    fn layer_id(&self) -> &LayerId {
+        &self.layer_id
+    }
+
+    fn apply(&self, font: &mut Font) -> CoreResult<()> {
+        let Self {
+            layer_id,
+            corners,
+            radius,
+        } = self;
+        font.edit_layer(*layer_id, |layer| {
+            for corner in corners {
+                layer.round_corner(&corner.point_id, *radius, corner.end_id.clone())?;
+            }
+            Ok(())
+        })
+    }
+}
+
 /// Raises a line to a cubic of the same shape: see [`GlyphLayer::upgrade_line_to_cubic`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "pack", derive(pack::Pack))]

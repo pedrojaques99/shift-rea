@@ -164,6 +164,7 @@ describe("application command menu items", () => {
       "view.zoomOut",
       "view.toggleGrid",
       "view.toggleSnapToGrid",
+      "view.toggleOutlineIssues",
     ]);
     expect(sizeItems.map(({ label }) => label)).toEqual(["Increase", "Decrease", "Reset"]);
   });

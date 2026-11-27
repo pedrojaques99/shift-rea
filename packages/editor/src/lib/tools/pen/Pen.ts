@@ -6,15 +6,17 @@ import {
   EscapeBehavior,
   CloseBehavior,
   PullHandleBehavior,
+  RemovePointBehavior,
 } from "./behaviors";
 import type { CursorType } from "../../../types/editor";
+import type { ScenePoint } from "../../../types/coordinates";
 import type { PositionGuide } from "../../../types/positionEdit";
 import type { Canvas } from "../../editor/rendering/Canvas";
 import type { Editor } from "../../editor/Editor";
 import { PenTargets, type PenTarget } from "./PenTargets";
 import { PenOverlay } from "./PenOverlay";
 import { Curve, Vec2, type CubicCurve, type Point2D } from "@shift/geo";
-import type { ContourId } from "@shift/types";
+import type { ContourId, PointId } from "@shift/types";
 import {
   computed,
   signal,
@@ -39,6 +41,7 @@ export class Pen extends BaseTool<PenState, Pen> {
   readonly behaviors = [
     new EscapeBehavior(),
     new PullHandleBehavior(),
+    new RemovePointBehavior(),
     new PenDownBehaviour(),
     new CloseBehavior(),
     new HandleBehavior(),
@@ -179,6 +182,23 @@ export class Pen extends BaseTool<PenState, Pen> {
     return { position: exact, guides: [{ kind: "alignment", target: exact, point: exact }] };
   }
 
+  /**
+   * The on-curve point under `scenePoint` that Alt + click would remove, if any.
+   *
+   * @param scenePoint - Pointer position in scene units.
+   */
+  removablePointAt(scenePoint: ScenePoint): PointId | null {
+    const stroke = PenStroke.active(this);
+    if (!stroke) return null;
+
+    const nodePoint = this.editor.toLocal(stroke.node, scenePoint);
+    const target = PenTargets.forGeometry(stroke.layer.geometry).at(
+      nodePoint,
+      this.editor.hitRadiusIn(stroke.node),
+    );
+    return target.type === "point" || target.type === "terminal" ? target.pointId : null;
+  }
+
   #directed(endpoint: PenEndpoint, position: Point2D): Point2D | null {
     const delta = Vec2.sub(position, endpoint.position);
     const snappedDelta = DirectionSnap.everyDegrees(15).apply(delta);
@@ -223,6 +243,10 @@ export class Pen extends BaseTool<PenState, Pen> {
     const targets = PenTargets.forGeometry(stroke.layer.geometry);
     const target = targets.at(nodePoint, this.editor.hitRadiusIn(stroke.node));
     const activeEndpoint = stroke.activeEndpoint;
+
+    if (this.editor.currentModifiersCell.value.altKey && this.removablePointAt(pos.scene)) {
+      return { type: "pen-remove" };
+    }
 
     switch (target.type) {
       case "terminal":

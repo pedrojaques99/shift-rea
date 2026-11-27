@@ -2,6 +2,7 @@ import { commandShortcuts, glyphColorCommands } from "@shared/commands";
 import { alignSelection, applyBooleanSelection, flipSelection } from "@/lib/editor/sidebarActions";
 import { matchChord, normalizeKeyboardEvent } from "./normalize";
 import { sidebarShortcuts } from "./sidebarShortcuts";
+import { outlineIssuesInFocus } from "@/lib/commands/rendererCommands";
 import type {
   KeyboardCommandHandler,
   KeyBinding,
@@ -38,6 +39,15 @@ export function createGlobalKeyDownBindings(runCommand: KeyboardCommandHandler):
       when: (ctx) => !ctx.canvasActive,
       match: (event) => matchChord(event, { key: "Escape" }),
       run: (ctx) => ctx.editor.collapseEditingSources(),
+    },
+    {
+      id: "global.goToGlyph",
+      preventDefault: true,
+      match: (event) => matchChord(event, commandShortcuts["glyph.goTo"]),
+      run: async () => {
+        await runCommand("glyph.goTo");
+        return true;
+      },
     },
     {
       id: "global.addComponent",
@@ -265,6 +275,36 @@ export function createCanvasKeyDownBindings(handlers: KeymapHandlers): KeyBindin
         }),
       run: (ctx) => {
         ctx.editor.grid.toggleVisible();
+        return true;
+      },
+    },
+    {
+      id: "canvas.fixOutlineIssue",
+      preventDefault: true,
+      when: (ctx) => !isTyping(ctx),
+      match: (event) =>
+        matchChord(event, {
+          ...commandShortcuts["glyph.fixOutlineIssue"],
+          metaKey: false,
+          ctrlKey: false,
+        }),
+      run: (ctx) => {
+        void ctx.editor.craft.fix(outlineIssuesInFocus(ctx.editor));
+        return true;
+      },
+    },
+    {
+      id: "canvas.fixAllOutlineIssues",
+      preventDefault: true,
+      when: (ctx) => !isTyping(ctx),
+      match: (event) =>
+        matchChord(event, {
+          ...commandShortcuts["glyph.fixAllOutlineIssues"],
+          metaKey: false,
+          ctrlKey: false,
+        }),
+      run: (ctx) => {
+        void ctx.editor.craft.fix(ctx.editor.craft.issuesCell.peek());
         return true;
       },
     },

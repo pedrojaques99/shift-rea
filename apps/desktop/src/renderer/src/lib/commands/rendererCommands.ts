@@ -1,6 +1,6 @@
 import type { EditorCommandId } from "@shared/commands";
 import type { ContourId } from "@shift/types";
-import type { Editor } from "@shift/editor";
+import type { CraftIssue, Editor } from "@shift/editor";
 import { electronSystemClipboard } from "@/lib/clipboard/electronSystemClipboard";
 import { objectIsKindOf } from "@shift/editor/types";
 
@@ -30,6 +30,17 @@ export function canMakeFirstPoint(editor: Editor): boolean {
     contour?.closed === true &&
     contour.points[0]?.id !== object.pointId
   );
+}
+
+/**
+ * The outline issues at the selected points, or at the point under the
+ * pointer when nothing flagged is selected: what F fixes.
+ */
+export function outlineIssuesInFocus(editor: Editor): readonly CraftIssue[] {
+  const selected = editor.craft.issuesAt(editor.selection.ids);
+  if (selected.length > 0) return selected;
+  const hovered = editor.hover.entryCell.peek();
+  return hovered ? editor.craft.issuesAt([hovered]) : [];
 }
 
 /**
@@ -135,6 +146,16 @@ export async function runRendererCommand(editor: Editor, id: EditorCommandId): P
       editor.grid.toggleSnap();
       return true;
 
+    case "view.toggleOutlineIssues":
+      editor.craft.toggleVisible();
+      return true;
+
+    case "glyph.fixOutlineIssue":
+      return (await editor.craft.fix(outlineIssuesInFocus(editor))) > 0;
+
+    case "glyph.fixAllOutlineIssues":
+      return (await editor.craft.fix(editor.craft.issuesCell.peek())) > 0;
+
     case "glyph.makeFirstPoint": {
       if (!canMakeFirstPoint(editor)) return false;
 
@@ -218,6 +239,9 @@ async function runFocusedTextEditCommand(id: EditorCommandId): Promise<boolean |
     case "glyph.decomposeComponents":
     case "glyph.reverseSelectedContour":
     case "glyph.makeFirstPoint":
+    case "glyph.fixOutlineIssue":
+    case "glyph.fixAllOutlineIssues":
+    case "view.toggleOutlineIssues":
       return null;
   }
 }

@@ -1,5 +1,7 @@
 export { createMemoryFontSession, newMemoryFontSource } from "./createMemoryFontSession";
 export { Editor } from "./lib/editor/Editor";
+export { MIRRORED_AXIS_TAGS } from "./lib/editor/MultiSourceEditing";
+export { CraftReview, type CraftIssue } from "./lib/editor/CraftReview";
 export { EditorHistory } from "./lib/editor/history/EditorHistory";
 export { HistoryCapture } from "./lib/editor/history/HistoryCapture";
 export { applyListSelection } from "./lib/editor/listSelection";

@@ -12,14 +12,16 @@ import {
 import { useSignalState } from "@shift/editor/signals";
 import { CanvasSurface } from "@shift/editor/rendering";
 import { getShiftHost } from "@/host/shiftHost";
-import { canMakeFirstPoint } from "@/lib/commands/rendererCommands";
+import { canMakeFirstPoint, outlineIssuesInFocus } from "@/lib/commands/rendererCommands";
 import type { CanvasContextMenuProps } from "@/types/contextMenu";
 import { useEditor } from "@/workspace/WorkspaceContext";
 
 export const CanvasContextMenu = ({ children }: CanvasContextMenuProps) => {
   const editor = useEditor();
   useSignalState(editor.selection.stateCell, { schedule: "frame" });
+  useSignalState(editor.craft.issuesCell, { schedule: "frame" });
   const anchored = editor.selectedComponentsAnchored();
+  const issues = outlineIssuesInFocus(editor).filter((issue) => issue.fix);
   const runCommand = useCallback(async (commandId: CommandId) => {
     try {
       await getShiftHost().commands.run(commandId);
@@ -63,6 +65,22 @@ export const CanvasContextMenu = ({ children }: CanvasContextMenuProps) => {
       <ContextMenuPortal>
         <ContextMenuPositioner>
           <ContextMenuPopup>
+            {issues.length > 0 && (
+              <>
+                {issues.map((issue) => (
+                  <ContextMenuItem
+                    key={`${issue.code}:${[...issue.points].join(",")}`}
+                    title={issue.message}
+                    onClick={async () => {
+                      await editor.craft.fix([issue]);
+                    }}
+                  >
+                    {issue.fix!.label}
+                  </ContextMenuItem>
+                ))}
+                <ContextMenuSeparator />
+              </>
+            )}
             <ContextMenuItem onClick={async () => runCommand("edit.cut")}>Cut</ContextMenuItem>
             <ContextMenuItem onClick={async () => runCommand("edit.copy")}>Copy</ContextMenuItem>
             <ContextMenuItem onClick={async () => runCommand("edit.paste")}>Paste</ContextMenuItem>

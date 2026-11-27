@@ -10,9 +10,10 @@
 
 use serde::Serialize;
 
-use crate::{CoreResult, Font, GlyphId, SourceId};
+use crate::{CoreResult, Font, GlyphId, LayerId, PointId, SourceId};
 
 mod coverage;
+mod craft;
 mod designspace;
 mod health;
 mod kerning;
@@ -22,6 +23,7 @@ mod roles;
 mod swaps;
 
 pub use coverage::Charset;
+pub use craft::CraftThresholds;
 pub use outline::OutlineThresholds;
 
 /// Opt-in checks for one run.
@@ -145,11 +147,28 @@ pub enum Check {
     MonoWidthMismatch,
     /// A glyph's ink is wider than its monospace cell.
     MonoInkOverflow,
+    /// Between two masters, a smooth point's handles leave a line: each master
+    /// is smooth, but its handles keep different proportions.
+    InterpolationKink,
+    /// A point marked smooth whose handles don't line up, so the curve breaks.
+    BrokenSmooth,
+    /// A corner only a few degrees from smooth: a smooth point drawn slightly off.
+    AlmostSmooth,
+    /// A handle drawn onto its own point, or a curve whose handles both are.
+    RetractedHandle,
+    /// A segment too short to see in every master.
+    ShortSegment,
+    /// A line a hair off horizontal, vertical or the italic angle.
+    NearAxisLine,
+    /// A handle a hair off horizontal, vertical or the italic angle.
+    NearAxisHandle,
+    /// An on-curve point in the middle of a straight line in every master.
+    RedundantPoint,
 }
 
 impl Check {
     /// Every check, in code order.
-    pub const ALL: [Self; 32] = [
+    pub const ALL: [Self; 40] = [
         Self::NoDefaultMaster,
         Self::DuplicateMasterLocation,
         Self::MasterOutsideAxis,
@@ -182,6 +201,14 @@ impl Check {
         Self::CharsetMissingLayer,
         Self::MonoWidthMismatch,
         Self::MonoInkOverflow,
+        Self::InterpolationKink,
+        Self::BrokenSmooth,
+        Self::AlmostSmooth,
+        Self::RetractedHandle,
+        Self::ShortSegment,
+        Self::NearAxisLine,
+        Self::NearAxisHandle,
+        Self::RedundantPoint,
     ];
 
     /// Returns the stable code, such as `D001`.
@@ -239,6 +266,14 @@ impl Check {
             Self::CharsetMissingLayer => ("C002", "charset-missing-layer", Severity::Error),
             Self::MonoWidthMismatch => ("M001", "mono-width-mismatch", Severity::Error),
             Self::MonoInkOverflow => ("M002", "mono-ink-overflow", Severity::Warning),
+            Self::InterpolationKink => ("I009", "interpolation-kink", Severity::Warning),
+            Self::BrokenSmooth => ("O011", "broken-smooth", Severity::Warning),
+            Self::AlmostSmooth => ("O012", "almost-smooth", Severity::Warning),
+            Self::RetractedHandle => ("O013", "retracted-handle", Severity::Warning),
+            Self::ShortSegment => ("O014", "short-segment", Severity::Warning),
+            Self::NearAxisLine => ("O015", "near-axis-line", Severity::Warning),
+            Self::NearAxisHandle => ("O016", "near-axis-handle", Severity::Warning),
+            Self::RedundantPoint => ("O017", "redundant-point", Severity::Warning),
         }
     }
 }
@@ -254,7 +289,60 @@ pub struct Finding {
     pub source: Option<SourceId>,
     /// Zero-based contour index, when the problem is in one contour.
     pub contour: Option<usize>,
+    /// The points the problem sits at, in every layer it concerns: what an
+    /// editor marks on the layer it shows.
+    pub points: Vec<PointId>,
     pub message: String,
+    /// The edit that resolves the problem, when one can be computed.
+    pub fix: Option<Fix>,
+}
+
+/// An edit that resolves a finding: points to move and points to remove, in
+/// any of the glyph's layers. Applied together, as one step.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Fix {
+    /// What the fix does, as a menu would say it: `Line up handles`.
+    pub label: String,
+    pub moves: Vec<PointMove>,
+    /// Removed with the curve fitted across the gap, as Delete does.
+    pub removals: Vec<PointRemoval>,
+}
+
+impl Fix {
+    fn new(label: &str, moves: Vec<PointMove>) -> Self {
+        Self {
+            label: label.to_owned(),
+            moves,
+            removals: Vec::new(),
+        }
+    }
+
+    fn removing(label: &str, removals: Vec<PointRemoval>) -> Self {
+        Self {
+            label: label.to_owned(),
+            moves: Vec::new(),
+            removals,
+        }
+    }
+}
+
+/// A point a [`Fix`] moves, to an absolute position in its layer.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PointMove {
+    pub layer_id: LayerId,
+    pub point_id: PointId,
+    pub x: f64,
+    pub y: f64,
+}
+
+/// A point a [`Fix`] removes from its layer.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PointRemoval {
+    pub layer_id: LayerId,
+    pub point_id: PointId,
 }
 
 impl Finding {
@@ -264,7 +352,9 @@ impl Finding {
             glyph: None,
             source: None,
             contour: None,
+            points: Vec::new(),
             message: message.into(),
+            fix: None,
         }
     }
 
@@ -282,6 +372,16 @@ impl Finding {
 
     fn in_contour(mut self, contour: usize) -> Self {
         self.contour = Some(contour);
+        self
+    }
+
+    fn at_points(mut self, points: Vec<PointId>) -> Self {
+        self.points = points;
+        self
+    }
+
+    fn with_fix(mut self, fix: Fix) -> Self {
+        self.fix = Some(fix);
         self
     }
 }
@@ -310,6 +410,7 @@ impl Font {
         for glyph in self.glyphs() {
             findings.extend(health::check(self, glyph));
             findings.extend(outline::check(self, glyph.id(), &thresholds)?);
+            findings.extend(craft::check(self, glyph, &CraftThresholds::default()));
             findings.extend(self.never_used_swap_findings(glyph)?);
             findings.extend(glyph.component_condition_findings());
         }
@@ -340,6 +441,7 @@ impl Font {
             glyph_id,
             &OutlineThresholds::default(),
         )?);
+        findings.extend(craft::check(self, glyph, &CraftThresholds::default()));
         findings.extend(self.never_used_swap_findings(glyph)?);
         findings.extend(glyph.component_condition_findings());
         Ok(findings)

@@ -489,6 +489,10 @@ class GlyphLayerWriter {
     this.#workspaceIntents.splitSegment({ startId, endId, t, pointId });
   }
 
+  roundCorners(corners: readonly { pointId: PointId; endId: PointId }[], radius: number): void {
+    this.#workspaceIntents.roundCorners({ corners: [...corners], radius });
+  }
+
   upgradeLineToCubic(startId: PointId, endId: PointId): void {
     this.#workspaceIntents.upgradeLineToCubic({ startId, endId });
   }
@@ -1234,6 +1238,21 @@ export class GlyphLayer {
    * @param t - Parametric split position, strictly between 0 and 1.
    * @returns The inserted on-curve point id, or `null` when the segment is unavailable.
    */
+  /**
+   * Rounds corner points with an arc reaching `radius` units along each edge,
+   * as a corner radius does in a drawing app; see the engine's `round_corner`.
+   *
+   * @param pointIds - On-curve points; ones that are no corner are left alone.
+   * @param endIds - The id each corner's new second arc end takes, in the same order.
+   */
+  roundCorners(pointIds: readonly PointId[], endIds: readonly PointId[], radius: number): void {
+    if (pointIds.length === 0 || !(radius > 0)) return;
+    const corners = pointIds.map((pointId, i) => ({ pointId, endId: endIds[i]! }));
+    this.#writer.transaction("Round corners", () => {
+      this.#writer.roundCorners(corners, radius);
+    });
+  }
+
   splitSegment(segmentId: SegmentId, t: number): PointId | null {
     const segment = this.geometry.segment(segmentId);
     if (!segment || !(t > 0 && t < 1)) return null;
@@ -1243,6 +1262,19 @@ export class GlyphLayer {
       this.#writer.splitSegment(segment.startId, segment.endId, t, pointId);
     });
     return pointId;
+  }
+
+  /**
+   * Splits the segment from `startId` to `endId` at `t`; the same split as
+   * {@link splitSegment}, addressed by its ends, for a source matched to another.
+   *
+   * @returns The new point, or null when the two are not one segment's ends.
+   */
+  splitSegmentBetween(startId: PointId, endId: PointId, t: number): PointId | null {
+    const segment = this.contours
+      .flatMap((contour) => contour.segments())
+      .find((s) => s.startId === startId && s.endId === endId);
+    return segment ? this.splitSegment(segment.id, t) : null;
   }
 
   /**

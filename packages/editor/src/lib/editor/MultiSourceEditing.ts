@@ -1,5 +1,5 @@
 import { Bounds, type Rect2D } from "@shift/geo";
-import type { ComponentId, GlyphId, SourceId } from "@shift/types";
+import type { AxisId, ComponentId, GlyphId, SourceId } from "@shift/types";
 import type { ExternalAxisLocation } from "../../types/variation";
 import type { Font } from "../model/Font";
 import type { Glyph, GlyphLayer } from "../model/Glyph";
@@ -14,6 +14,19 @@ import type { SourceRenderInputs } from "../../types/glyphRender";
 import { externalAxisLocationsEqual } from "../variation/location";
 import { PositionTargets } from "../model/positions/PositionTargets";
 
+/**
+ * Tags of the axes whose masters mirror each other glyph by glyph: Ink Traps. A glyph with
+ * no traps is drawn the same at both ends of the axis, so an edit at one end goes to the
+ * other while the two still match.
+ */
+export const MIRRORED_AXIS_TAGS: ReadonlySet<string> = new Set(["INKT"]);
+
+/** One layer and the layer across a mirrored axis from it. */
+export interface MirroredPair {
+  readonly layer: GlyphLayer;
+  readonly twin: GlyphLayer;
+}
+
 /** Maps the active source's selection onto every other source selected for editing. */
 export class MultiSourceEditing {
   readonly #font: Font;
@@ -21,6 +34,7 @@ export class MultiSourceEditing {
   readonly #activeSourceIdCell: Signal<SourceId | null>;
   readonly #editingSourceIdsCell: Signal<ReadonlySet<SourceId>>;
   readonly #activeDrawingCell: Signal<GlyphLayer | null>;
+  readonly #mirrorPairsCell: Signal<boolean>;
   // non-reactive: reuses each source's render-model input cells so Glyph's cell-keyed render-model cache hits.
   readonly #sourceRenderInputs = new Map<SourceId, SourceRenderInputs>();
 
@@ -30,6 +44,7 @@ export class MultiSourceEditing {
    * @param activeSourceIdCell - Reference source selected for direct editing.
    * @param editingSourceIdsCell - Complete source set transformed together.
    * @param activeDrawingCell - The located drawing edited alone, off the font's sources.
+   * @param mirrorPairsCell - Whether edits reach the matching master across a mirrored axis.
    */
   constructor(
     font: Font,
@@ -37,8 +52,10 @@ export class MultiSourceEditing {
     activeSourceIdCell: Signal<SourceId | null>,
     editingSourceIdsCell: Signal<ReadonlySet<SourceId>>,
     activeDrawingCell: Signal<GlyphLayer | null>,
+    mirrorPairsCell: Signal<boolean>,
   ) {
     this.#activeDrawingCell = activeDrawingCell;
+    this.#mirrorPairsCell = mirrorPairsCell;
     this.#font = font;
     this.#glyphForId = glyphForId;
     this.#activeSourceIdCell = activeSourceIdCell;
@@ -93,6 +110,124 @@ export class MultiSourceEditing {
       });
     }
 
+    const glyph = this.#glyphForLayer(reference.layer);
+    const edited = [reference.layer, ...additionalLayers.map(({ layer }) => layer)];
+    for (const twin of glyph ? this.#twinsOf(glyph, edited) : []) {
+      const counterparts = this.#font.counterparts(reference.layer.id, twin.id, ids);
+      if (!counterparts) continue;
+
+      additionalLayers.push({
+        layer: twin,
+        targets: new PositionTargets(counterparts.points, counterparts.anchors),
+      });
+    }
+
+    return { ...reference, additionalLayers };
+  }
+
+  /**
+   * The glyph's layers across a mirrored axis (Ink Traps) from `layers`: each at the
+   * source sitting where one of `layers` does except on that axis.
+   *
+   * @param matching - Only the pairs drawn the same (a glyph without traps); a pair
+   *   already drawn differently, as a glyph with traps is, is left out.
+   */
+  pairsOf(
+    glyph: Glyph,
+    layers: readonly GlyphLayer[],
+    { matching }: { readonly matching: boolean },
+  ): MirroredPair[] {
+    const mirrored = new Set(
+      this.#font.externalAxesCell
+        .peek()
+        .filter((axis) => MIRRORED_AXIS_TAGS.has(axis.tag))
+        .map((axis) => axis.id),
+    );
+    if (mirrored.size === 0) return [];
+
+    const taken = new Set(layers.map(({ id }) => id));
+    const pairs: MirroredPair[] = [];
+    for (const layer of layers) {
+      const here = this.#font.externalLocationForSource(layer.sourceId);
+      if (!here) continue;
+
+      for (const source of this.#font.sources) {
+        const twin = glyph.layerForSource(source.id);
+        if (!twin || taken.has(twin.id)) continue;
+
+        const there = this.#font.externalLocationForSource(source.id);
+        if (!there || !differsOnlyOn(here, there, mirrored)) continue;
+        if (matching && !sameOutline(layer, twin)) continue;
+
+        taken.add(twin.id);
+        pairs.push({ layer, twin });
+      }
+    }
+    return pairs;
+  }
+
+  /**
+   * The glyph's layers on the same side of the mirrored axes as `layer`: at every source
+   * with the same Ink Traps value, whatever its weight or width.
+   */
+  sameSideOf(glyph: Glyph, layer: GlyphLayer): GlyphLayer[] {
+    const mirrored = this.#font.externalAxesCell
+      .peek()
+      .filter((axis) => MIRRORED_AXIS_TAGS.has(axis.tag))
+      .map((axis) => axis.id);
+    const here = this.#font.externalLocationForSource(layer.sourceId);
+    if (!here || mirrored.length === 0) return [];
+
+    const layers: GlyphLayer[] = [];
+    for (const source of this.#font.sources) {
+      const there = this.#font.externalLocationForSource(source.id);
+      const other = glyph.layerForSource(source.id);
+      if (!there || !other) continue;
+      if (mirrored.every((axisId) => there.get(axisId) === here.get(axisId))) layers.push(other);
+    }
+    return layers;
+  }
+
+  /** The matching twins of `layers` an edit should also reach; none while mirroring is off. */
+  #twinsOf(glyph: Glyph, layers: readonly GlyphLayer[]): GlyphLayer[] {
+    if (!this.#mirrorPairsCell.peek() || this.#activeDrawingCell.peek()) return [];
+    return this.pairsOf(glyph, layers, { matching: true }).map(({ twin }) => twin);
+  }
+
+  /**
+   * Maps one reference-layer selection onto the glyph's layer at every other source, for
+   * edits that change the outline's structure (deleting, merging or adding points): those
+   * must reach every master, or the glyph stops interpolating.
+   *
+   * @remarks
+   * A source whose layer no longer matches the reference (already incompatible) is left
+   * out, since there is nothing there to keep in step. A located drawing edited alone has
+   * no other layers.
+   *
+   * @param reference - Normalized targets owned by the active source layer.
+   */
+  resolveStructural(reference: PositionSelectionLayer): PositionSelection {
+    const none = { ...reference, additionalLayers: [] };
+    if (this.#activeDrawingCell.peek()) return none;
+
+    const glyph = this.#glyphForLayer(reference.layer);
+    if (!glyph) return none;
+
+    const { points, anchors } = reference.targets;
+    const ids = { points, anchors, components: [] };
+    const additionalLayers: PositionSelectionLayer[] = [];
+    for (const source of this.#font.sources) {
+      const layer = glyph.layerForSource(source.id);
+      if (!layer || layer.id === reference.layer.id) continue;
+
+      const counterparts = this.#font.counterparts(reference.layer.id, layer.id, ids);
+      if (!counterparts) continue;
+
+      additionalLayers.push({
+        layer,
+        targets: new PositionTargets(counterparts.points, counterparts.anchors),
+      });
+    }
     return { ...reference, additionalLayers };
   }
 
@@ -113,6 +248,15 @@ export class MultiSourceEditing {
       if (!counterparts) return null;
 
       additionalLayers.push({ layer: targetLayer, componentIds: counterparts.components });
+    }
+
+    const glyph = this.#glyphForLayer(reference.layer);
+    const edited = [reference.layer, ...additionalLayers.map(({ layer }) => layer)];
+    for (const twin of glyph ? this.#twinsOf(glyph, edited) : []) {
+      const counterparts = this.#font.counterparts(reference.layer.id, twin.id, ids);
+      if (!counterparts) continue;
+
+      additionalLayers.push({ layer: twin, componentIds: counterparts.components });
     }
 
     return { ...reference, additionalLayers };
@@ -217,4 +361,60 @@ export class MultiSourceEditing {
     const glyphId = this.#font.glyphIdForLayer(layer.id);
     return glyphId ? this.#glyphForId(glyphId) : null;
   }
+}
+
+/** Whether two locations differ on at least one of `axes` and nowhere else. */
+function differsOnlyOn(
+  here: ExternalAxisLocation,
+  there: ExternalAxisLocation,
+  axes: ReadonlySet<AxisId>,
+): boolean {
+  if (here.size !== there.size) return false;
+
+  let differs = false;
+  for (const [axisId, value] of here) {
+    if (there.get(axisId) === value) continue;
+    if (!axes.has(axisId)) return false;
+    differs = true;
+  }
+  return differs;
+}
+
+/** Closer than this, in font units, two points count as the same. */
+const SAME_POINT = 0.01;
+
+/**
+ * Whether two layers draw the same: the same points in the same places, and the same
+ * components placed the same way.
+ */
+export function sameOutline(a: GlyphLayer, b: GlyphLayer): boolean {
+  if (a.contours.length !== b.contours.length) return false;
+  if (a.components.length !== b.components.length) return false;
+
+  const componentsMatch = a.components.every((component, i) => {
+    const other = b.components[i]!;
+    const [m, n] = [component.matrix, other.matrix];
+    return (
+      component.baseGlyphId === other.baseGlyphId &&
+      [m.a - n.a, m.b - n.b, m.c - n.c, m.d - n.d, m.e - n.e, m.f - n.f].every(
+        (delta) => Math.abs(delta) < SAME_POINT,
+      )
+    );
+  });
+  if (!componentsMatch) return false;
+
+  return a.contours.every((contour, c) => {
+    const other = b.contours[c]!;
+    if (contour.closed !== other.closed || contour.points.length !== other.points.length) {
+      return false;
+    }
+    return contour.points.every((point, p) => {
+      const twin = other.points[p]!;
+      return (
+        point.isOnCurve === twin.isOnCurve &&
+        Math.abs(point.position.x - twin.position.x) < SAME_POINT &&
+        Math.abs(point.position.y - twin.position.y) < SAME_POINT
+      );
+    });
+  });
 }

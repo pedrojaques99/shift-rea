@@ -149,7 +149,15 @@ export class ShiftFontReader {
       source: sourceId ? (this.source({ sourceId })?.name ?? null) : null,
       sourceId,
       contour: finding.contour ?? null,
+      points: [...finding.points],
       message: finding.message,
+      fix: finding.fix
+        ? {
+            label: finding.fix.label,
+            moves: finding.fix.moves.map((step) => ({ ...step })),
+            removals: finding.fix.removals.map((removal) => ({ ...removal })),
+          }
+        : null,
     };
   }
 

@@ -4,6 +4,7 @@ import type { Canvas } from "./Canvas";
 import type { ShiftNode } from "../../../types/node";
 import type { RenderContext, RenderPass } from "../../../types/rendering";
 import type { Editor } from "../Editor";
+import { CraftMarkers } from "./overlays/CraftMarkers";
 
 export interface BackgroundLayerProps {
   readonly nodes: readonly ShiftNode[];
@@ -176,6 +177,7 @@ export class SceneLayer extends CanvasItem<SceneLayerProps> {
  */
 export class OverlayLayer extends CanvasItem<OverlayLayerProps> {
   readonly #editor: Editor;
+  readonly #craft: CraftMarkers;
 
   /**
    * Creates the overlay layer for one editor.
@@ -185,11 +187,19 @@ export class OverlayLayer extends CanvasItem<OverlayLayerProps> {
   constructor(editor: Editor) {
     super();
     this.#editor = editor;
+    this.#craft = new CraftMarkers(editor);
   }
 
   protected props(): OverlayLayerProps {
     this.#editor.camera.trackViewportTransform();
     const tool = this.#editor.toolCell.value;
+    // The craft markers follow the review, the selection and hover, and step
+    // aside during gestures.
+    track(this.#editor.craft.shownCell);
+    track(this.#editor.selection.stateCell);
+    track(this.#editor.hover.entryCell);
+    track(this.#editor.draggingCell);
+    track(this.#editor.isEditingCell);
 
     return {
       activeTool: tool?.id ?? null,
@@ -201,6 +211,7 @@ export class OverlayLayer extends CanvasItem<OverlayLayerProps> {
     const props = this.propsCell.value;
     if (!props) return;
 
+    this.#craft.draw(canvas);
     this.#editor.toolManager.drawOverlay(canvas);
   }
 }

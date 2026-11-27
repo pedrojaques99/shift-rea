@@ -88,6 +88,18 @@ export interface EditorRenderTheme {
   };
   /** The live value of a drag (move, handle, resize, rotate) in a quiet pill beside the pointer. */
   dragReadout: { fill: string; text: string; font: string; offsetPx: number };
+  /**
+   * Craft review: a thin ring around a point with an outline problem, and the
+   * pill that names it when the point is selected or hovered.
+   */
+  craft: {
+    color: string;
+    widthPx: number;
+    ringPx: number;
+    labelFill: string;
+    labelText: string;
+    font: string;
+  };
   segment: {
     hoverColor: string;
     selectedColor: string;
@@ -289,6 +301,14 @@ const DEFAULT_EDITOR_RENDER_THEME: EditorRenderTheme = {
     font: `500 10px ${MONO_FONT}`,
     offsetPx: 14,
   },
+  craft: {
+    color: "rgba(245, 158, 11, 0.9)",
+    widthPx: 1.5,
+    ringPx: 7,
+    labelFill: "rgba(23, 23, 23, 0.86)",
+    labelText: "#fbbf24",
+    font: `500 10px ${MONO_FONT}`,
+  },
   segment: {
     hoverColor: "#1886D7",
     selectedColor: "#1886D7",
@@ -475,6 +495,9 @@ export function readEditorRenderTheme(
   theme.snap.color = readColor("--editor-snap-color", theme.snap.color);
   theme.dragReadout.fill = readColor("--editor-drag-readout-fill", theme.dragReadout.fill);
   theme.dragReadout.text = readColor("--editor-drag-readout-text", theme.dragReadout.text);
+  theme.craft.color = readColor("--editor-craft-color", theme.craft.color);
+  theme.craft.labelFill = readColor("--editor-craft-label-fill", theme.craft.labelFill);
+  theme.craft.labelText = readColor("--editor-craft-label-text", theme.craft.labelText);
   theme.segment.hoverColor = readColor("--editor-segment-hover-color", theme.segment.hoverColor);
   theme.segment.selectedColor = readColor(
     "--editor-segment-selected-color",

@@ -246,11 +246,16 @@ export class ApplicationMenu {
 
   #glyphItems(): MenuItemConstructorOptions[] {
     return [
+      this.#commandItem("glyph.goTo"),
+      { type: "separator" },
       this.#commandItem("glyph.addComponent"),
       this.#commandItem("glyph.addAnchor"),
       this.#commandItem("glyph.decomposeComponents"),
       { type: "separator" },
       this.#commandItem("glyph.reverseSelectedContour"),
+      { type: "separator" },
+      this.#commandItem("glyph.fixOutlineIssue"),
+      this.#commandItem("glyph.fixAllOutlineIssues"),
       { type: "separator" },
       {
         label: "Colour",

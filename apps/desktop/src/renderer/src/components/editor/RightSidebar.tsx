@@ -13,6 +13,7 @@ import { GlyphKerningSection } from "./sidebar-right/GlyphKerningSection";
 import { GlyphTagButton } from "./sidebar-right/GlyphTag";
 import { HandleSection } from "./sidebar-right/HandleSection";
 import { KerningPairSection } from "./sidebar-right/KerningPairSection";
+import { OutlineIssuesSection } from "./sidebar-right/OutlineIssuesSection";
 import { ScaleSection } from "./sidebar-right/ScaleSection";
 import { SidebarGroup } from "./sidebar-right/SidebarGroup";
 import { TextSection } from "./sidebar-right/TextSection";
@@ -86,6 +87,9 @@ export const RightSidebar = () => {
                 <div ref={selectionBlockRef} className="flex flex-col">
                   <SidebarGroup>
                     <GlyphKerningSection anchorRef={selectionBlockRef} />
+                  </SidebarGroup>
+                  <SidebarGroup>
+                    <OutlineIssuesSection />
                   </SidebarGroup>
                   {hasTransformSelection ? (
                     <SidebarGroup>

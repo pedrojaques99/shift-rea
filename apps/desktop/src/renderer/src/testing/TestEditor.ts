@@ -1561,6 +1561,14 @@ export class TestEditor extends Editor implements EditorTestSurface {
     return this.#reads.font.check(glyphs);
   }
 
+  async reviewOutline(): Promise<readonly string[]> {
+    return (await this.craft.reviewNow()).map((issue) => issue.name);
+  }
+
+  markedOutlineIssues(): readonly string[] {
+    return this.craft.shownCell.peek().map((issue) => issue.name);
+  }
+
   glyphSource(name: string): GlyphSourceRow | null {
     return new GlyphDesignspace(this).sourceNamed(name);
   }

@@ -12,6 +12,7 @@ import {
   isNodeId,
   isTextItemId,
   isPointId,
+  mintPointId,
   type AnchorId,
   type AxisId,
   type ComponentId,
@@ -134,6 +135,8 @@ import type { PointerTarget } from "../../types/target";
 import type { ComponentTransformSelection } from "../../types/componentTransform";
 import type { TransformTarget } from "../../types/transformTarget";
 import type { ComponentTargets } from "../../types/componentTargets";
+import { CraftReview } from "./CraftReview";
+import { contourOf, spanTo } from "../tools/select/PointMerge";
 import type { PositionSelection } from "../../types/positionEdit";
 import type { ShiftObject } from "../../types/object";
 import type { NodeReference, ShiftEditorRecord } from "../../types/records";
@@ -209,6 +212,8 @@ export class Editor {
    */
   readonly selection: Selection;
   readonly editing: Editing;
+  /** Background review of the open glyph for craft problems, and their fixes. */
+  readonly craft: CraftReview;
   readonly history: EditorHistory;
   readonly hover: Hover;
   /** The canvas grid's spacing and whether it draws and snaps; session state, not font data. */
@@ -269,6 +274,7 @@ export class Editor {
   #activeDrawingCell: Signal<GlyphLayer | null>;
   #activeSourceIdCell: WritableSignal<SourceId | null>;
   #editingSourceIdsCell: WritableSignal<ReadonlySet<SourceId>>;
+  readonly #mirrorAxisPairsCell: WritableSignal<boolean> = signal(true);
   #multiSourceEditing: MultiSourceEditing;
 
   #cursorEffect: Effect;
@@ -351,6 +357,7 @@ export class Editor {
       this.#activeSourceIdCell,
       this.#editingSourceIdsCell,
       this.#activeDrawingCell,
+      this.#mirrorAxisPairsCell,
     );
     this.text = new Text(this);
     this.textEditing = new TextEditing(this.#store, this);
@@ -500,6 +507,7 @@ export class Editor {
       },
       { name: "editor.loadSwap" },
     );
+    this.craft = new CraftReview(this);
 
     this.#cursorEffect = effect(
       () => {
@@ -1019,6 +1027,68 @@ export class Editor {
     return sourceId ? this.font.source(sourceId) : null;
   }
 
+  /**
+   * Whether an edit also reaches the matching master across the Ink Traps axis while the
+   * glyph is drawn the same at both (a glyph without traps). Off, each master is edited alone.
+   */
+  public get mirrorAxisPairsCell(): Signal<boolean> {
+    return this.#mirrorAxisPairsCell;
+  }
+
+  public setMirrorAxisPairs(on: boolean): void {
+    this.#mirrorAxisPairsCell.set(on);
+  }
+
+  /**
+   * Draws the glyph being edited on the other side of the Ink Traps axis the way it is on
+   * this side, master by master (each weight and width to its own pair), as one undo step:
+   * for a glyph without traps whose two sides drifted apart, so they mirror again.
+   *
+   * @returns How many masters changed. A pair whose outlines do not match up point for
+   *   point is skipped.
+   */
+  public matchMirroredPairs(): number {
+    const active = this.#soleActiveLayer();
+    const glyphId = active ? this.font.glyphIdForLayer(active.id) : null;
+    const glyph = glyphId ? this.#fontStore.glyphForId(glyphId) : null;
+    if (!active || !glyph || this.#activeDrawingCell.peek()) return 0;
+
+    const side = this.#multiSourceEditing.sameSideOf(glyph, active);
+    const pairs = this.#multiSourceEditing.pairsOf(glyph, side, { matching: false });
+    return this.transaction("Match Ink Traps Pair", () => {
+      let changed = 0;
+      for (const { layer, twin } of pairs) {
+        const points = layer.contours.flatMap((contour) => contour.points);
+        const ids = { points: points.map(({ id }) => id), anchors: [], components: [] };
+        const counterparts = this.font.counterparts(layer.id, twin.id, ids);
+        if (!counterparts || counterparts.points.length !== points.length) continue;
+
+        let moved = false;
+        const positions = points.map((point, i) => {
+          const twinId = counterparts.points[i]!;
+          const twinPoint = twin.point(twinId);
+          if (twinPoint && twinPoint.isSmoothOnCurve !== point.isSmoothOnCurve && point.isOnCurve) {
+            twin.setPointSmooth(twinId, point.isSmoothOnCurve);
+            moved = true;
+          }
+          if (
+            !twinPoint ||
+            twinPoint.position.x !== point.position.x ||
+            twinPoint.position.y !== point.position.y
+          ) {
+            moved = true;
+          }
+          return { kind: "point" as const, id: twinId, x: point.position.x, y: point.position.y };
+        });
+        if (!moved) continue;
+
+        twin.applyPositionPatch(positions);
+        changed++;
+      }
+      return changed;
+    });
+  }
+
   public get editingSourceIdsCell(): Signal<ReadonlySet<SourceId>> {
     return this.#editingSourceIdsCell;
   }
@@ -1385,6 +1455,49 @@ export class Editor {
     return this.#multiSourceEditing.resolve({
       layer,
       targets: new PositionTargets([...points], [...anchors]),
+    });
+  }
+
+  /**
+   * Like {@link positionSelection}, but matched in the glyph's layer at every source, not
+   * only the ones selected for editing: for edits that change the outline's structure
+   * (deleting, merging, rounding or adding points), which must reach every master for
+   * the glyph to keep interpolating.
+   */
+  public structuralSelection(ids: readonly SelectableId[]): PositionSelection | null {
+    const selection = this.positionSelection(ids);
+    if (!selection) return null;
+    return this.#multiSourceEditing.resolveStructural({
+      layer: selection.layer,
+      targets: selection.targets,
+    });
+  }
+
+  /**
+   * Splits a segment of `layer` at `t`, and the matching segment at every other source,
+   * so the new point exists in every master; see {@link structuralSelection}.
+   *
+   * @returns The new point in `layer`, or null when `t` is not inside the segment.
+   */
+  public splitSegmentEverywhere(
+    layer: GlyphLayer,
+    segmentId: SegmentId,
+    t: number,
+  ): PointId | null {
+    const segment = layer.geometry.segment(segmentId);
+    if (!segment || !(t > 0 && t < 1)) return null;
+
+    const ends = this.#multiSourceEditing.resolveStructural({
+      layer,
+      targets: new PositionTargets([segment.startId, segment.endId], []),
+    });
+    return layer.transaction("Split segment", () => {
+      const pointId = layer.splitSegment(segmentId, t);
+      for (const other of ends.additionalLayers) {
+        const [startId, endId] = other.targets.points;
+        if (startId && endId) other.layer.splitSegmentBetween(startId, endId, t);
+      }
+      return pointId;
     });
   }
 
@@ -2666,6 +2779,57 @@ export class Editor {
     return true;
   }
 
+  /**
+   * Merges an on-curve point into the on-curve point next to it along its contour,
+   * in every master of the glyph: the point and
+   * the handles between the two go, and `targetId` keeps the handles on its other
+   * side plus the ones that led into the merged point, so the outline keeps its shape.
+   *
+   * @remarks
+   * Every master loses the same points, so the glyph keeps interpolating. The kept point turns into a corner where the two sides no longer line up.
+   * Opens no undo step of its own: the drag that dropped the point holds it.
+   *
+   * @returns `false` when the points are not neighbours, or the contour would be left
+   *   with too few on-curve points to keep.
+   */
+  public mergePoints(pointId: PointId, targetId: PointId): boolean {
+    const selection = this.structuralSelection([pointId]);
+    if (!selection || selection.targets.points.length !== 1) return false;
+
+    const contour = contourOf(selection.layer, pointId);
+    if (!contour) return false;
+    const step = ([1, -1] as const).find(
+      (s) => spanTo(contour, pointId, s)?.target.id === targetId,
+    );
+    if (!step) return false;
+    const onCurves = contour.points.filter((p) => p.isOnCurve).length;
+    if (onCurves < (contour.closed ? 3 : 2)) return false;
+
+    let merged = false;
+    for (const { layer, targets } of [selection, ...selection.additionalLayers]) {
+      const id = targets.points[0];
+      const source = id ? contourOf(layer, id) : null;
+      const span = id && source ? spanTo(source, id, step) : null;
+      const behind = id && source ? spanTo(source, id, step === 1 ? -1 : 1) : null;
+      if (!id || !span) continue;
+
+      const target = span.target;
+      const ahead = spanTo(source!, target.id, step);
+      const into = behind ? (behind.handles[0] ?? behind.target.id) : null;
+      const outOf = ahead ? (ahead.handles[0] ?? ahead.target.id) : null;
+      const lined = into && outOf ? linedUp(layer, into, target.position, outOf) : true;
+
+      layer.removePoints([id, ...span.handles]);
+      if (target.smooth && !lined) layer.setPointSmooth(target.id, false);
+      merged = true;
+    }
+    if (!merged) return false;
+
+    this.selection.select([targetId]);
+    this.hover.clear();
+    return true;
+  }
+
   public async deleteSelection(mode: DeleteMode = "fit"): Promise<boolean> {
     const componentsRemoved = await this.#editSelectedComponents(
       "Delete Components",
@@ -2673,29 +2837,94 @@ export class Editor {
     );
     if (componentsRemoved) return true;
 
-    const selection = this.positionSelection(this.selection.ids);
-    if (!selection) return false;
+    // Anchors are kept per master, as adding one is; points go in every master.
+    const edited = this.positionSelection(this.selection.ids);
+    if (!edited) return false;
 
-    const pointIds = selection.targets.points;
-    const anchorIds = selection.targets.anchors;
-    if (pointIds.length === 0 && anchorIds.length > 0) {
-      this.transaction("Delete Anchors", () => AnchorEdits.fromSelection(selection).remove());
+    const anchorIds = edited.targets.anchors;
+    if (edited.targets.points.length === 0 && anchorIds.length > 0) {
+      this.transaction("Delete Anchors", () => AnchorEdits.fromSelection(edited).remove());
       await this.#clearSelectionAfterEdit();
       return true;
     }
 
-    if (pointIds.length === 0 || anchorIds.length > 0) return false;
+    if (edited.targets.points.length === 0 || anchorIds.length > 0) return false;
 
-    const deleted = this.history.capture("Delete", () => {
-      if (!selection.layer.deletePoints(pointIds, mode)) return false;
-
-      this.selection.clear();
-      this.hover.clear();
-      return true;
-    });
+    const selection = this.structuralSelection(this.selection.ids);
+    if (!selection) return false;
+    const deleted = this.history.capture("Delete", () => this.#deletePointsIn(selection, mode));
     if (!deleted) return false;
 
     await this.font.editCoordinator.settled();
+    return true;
+  }
+
+  /**
+   * The selected on-curve points that are corners: where two edges meet at an
+   * angle. What a corner radius applies to.
+   */
+  public selectedCorners(): readonly PointId[] {
+    const selection = this.positionSelection(this.selection.ids);
+    if (!selection) return [];
+    const geometry = selection.layer.geometry;
+    return selection.targets.points.filter((id) => {
+      const point = geometry.point(id);
+      return point !== null && point.isOnCurve && !point.smooth;
+    });
+  }
+
+  /**
+   * Rounds the selected corners with `radius`, in the active source and every
+   * other source selected for editing, as one undo step: the same points in
+   * each, so the glyph stays compatible.
+   *
+   * @returns The number of corners rounded in the active source.
+   */
+  public roundSelectedCorners(radius: number): number {
+    const corners = this.selectedCorners();
+    if (corners.length === 0 || !(radius > 0)) return 0;
+    const selection = this.structuralSelection(corners);
+    if (!selection) return 0;
+    this.transaction("Round Corners", () => {
+      for (const { layer, targets } of [selection, ...selection.additionalLayers]) {
+        layer.roundCorners(
+          targets.points,
+          targets.points.map(() => mintPointId()),
+          radius,
+        );
+      }
+      this.selection.clear();
+    });
+    return corners.length;
+  }
+
+  /**
+   * Deletes points, without going through the selection, in the active source and in every
+   * other source selected for editing; see {@link deleteSelection}.
+   *
+   * @remarks
+   * Each source loses its matching points, so the glyph stays compatible across the sources
+   * being edited; with `"fit"` each source fits its own curve across the span. Opens no undo
+   * step of its own: tools call it inside the one their gesture already holds.
+   *
+   * @returns `false` when the points are not all in one edited layer, or a source lacks them.
+   */
+  public deletePoints(pointIds: readonly PointId[], mode: DeleteMode = "fit"): boolean {
+    if (pointIds.length === 0) return false;
+    const selection = this.structuralSelection(pointIds);
+    if (!selection || selection.targets.anchors.length > 0) return false;
+    return this.#deletePointsIn(selection, mode);
+  }
+
+  #deletePointsIn(selection: PositionSelection, mode: DeleteMode): boolean {
+    let deleted = false;
+    for (const { layer, targets } of [selection, ...selection.additionalLayers]) {
+      if (layer.deletePoints(targets.points, mode)) deleted = true;
+    }
+    if (!deleted) return false;
+
+    this.selection.clear();
+    this.hover.clear();
     return true;
   }
 
@@ -3035,6 +3264,7 @@ export class Editor {
     this.#events.emit("destroying");
     this.#cursorEffect.dispose();
     this.#swapLoadEffect.dispose();
+    this.craft.dispose();
     this.nodeDefinition("glyph").outlines.dispose();
     this.#renderer.destroy();
     this.#toolManager.dispose();
@@ -3079,4 +3309,18 @@ function sameSourceIds(a: ReadonlySet<SourceId>, b: ReadonlySet<SourceId>): bool
   if (a.size !== b.size) return false;
   for (const id of a) if (!b.has(id)) return false;
   return true;
+}
+
+/** Whether the outline turns by under half a degree at `at`, coming from `fromId` and leaving toward `toId`. */
+function linedUp(layer: GlyphLayer, fromId: PointId, at: Point2D, toId: PointId): boolean {
+  const from = layer.point(fromId)?.position;
+  const to = layer.point(toId)?.position;
+  if (!from || !to) return true;
+  const ax = at.x - from.x;
+  const ay = at.y - from.y;
+  const bx = to.x - at.x;
+  const by = to.y - at.y;
+  if ((ax === 0 && ay === 0) || (bx === 0 && by === 0)) return true;
+  const turn = Math.abs(Math.atan2(ax * by - ay * bx, ax * bx + ay * by));
+  return turn < (0.5 * Math.PI) / 180;
 }
